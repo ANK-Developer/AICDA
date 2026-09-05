@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
+
 import { Link } from "@tanstack/react-router";
-import { Eye, Handshake, RefreshCw, Search, Tag, Users, X } from "lucide-react";
-import { toast } from "sonner";
+
+import { Eye, Handshake, RefreshCw, Search, Tag, Users, X, LoaderCircle } from "lucide-react";
+
+import { toast } from "react-toastify";
+
 import { getMembers, renewMember, updateMember } from "@/lib/member-api";
+
 import { getPartners, renewPartner, updatePartner } from "@/lib/partner-api";
+
 import {
   buildMemberSlug,
   buildPartnerSlug,
@@ -16,41 +22,180 @@ import {
   isTodayOrPast,
   StatusBadge,
 } from "./directory-shared";
-import { DirectoryTableSkeleton } from "./DirectoryManagement";
 
 const PAGE_SIZE = 10;
 const LARGE_BATCH = 1000;
 const SEARCH_DEBOUNCE_MS = 400;
 
 const TABS = [
-  { value: "members", label: "Members", icon: Users },
-  { value: "partners", label: "Partners", icon: Handshake },
+  {
+    value: "members",
+    label: "Members",
+    icon: Users,
+  },
+  {
+    value: "partners",
+    label: "Partners",
+    icon: Handshake,
+  },
 ];
 
-// Same record shape for both tabs (id, displayId, name, designation,
-// companyName, mobile, validityTo, isActive) — these just pick the right
-// key for whichever tab is active instead of duplicating the whole page.
+/* =========================================================
+   HELPERS
+========================================================= */
+
 function displayIdOf(tab, record) {
   return tab === "members" ? record.memberId : record.partnerId;
 }
+
 function nameOf(tab, record) {
   return tab === "members" ? record.memberName : record.partnerName;
 }
+
 function detailsRouteOf(tab) {
-  return tab === "members" ? "/admin/directory/$slug/details" : "/admin/directory/partner/$slug/details";
+  return tab === "members"
+    ? "/admin/directory/$slug/details"
+    : "/admin/directory/partner/$slug/details";
 }
+
 function slugOf(tab, record) {
   return tab === "members" ? buildMemberSlug(record) : buildPartnerSlug(record);
 }
 
+/* =========================================================
+   MODAL
+========================================================= */
+
+function Modal({ title, description, children, onClose, maxWidth = "max-w-md" }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-[2px]"
+      role="dialog"
+      aria-modal="true"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          onClose();
+        }
+      }}
+      tabIndex={-1}
+    >
+      <div
+        className={`w-full ${maxWidth} max-h-[90vh] overflow-y-auto overflow-hidden rounded-md border border-slate-200 bg-white shadow-2xl`}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:px-5">
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-slate-800 sm:text-base">{title}</h3>
+
+            {description && (
+              <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-[13px]">{description}</p>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="shrink-0 rounded-md p-1.5 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-4 sm:p-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   TABLE SKELETON
+========================================================= */
+
+function ResetDirectoryTableSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-md border border-slate-200 bg-white">
+      <div className="w-full overflow-x-auto">
+        <table className="w-full min-w-[950px] text-left text-[13px]">
+          <thead className="bg-slate-50">
+            <tr>
+              {["ID", "Name", "Designation", "Mobile", "Status", "Days Remaining", "Actions"].map(
+                (heading) => (
+                  <th
+                    key={heading}
+                    className="whitespace-nowrap border-b border-slate-200 px-3 py-3 font-semibold text-slate-500"
+                  >
+                    {heading}
+                  </th>
+                ),
+              )}
+            </tr>
+          </thead>
+
+          <tbody>
+            {Array.from({ length: 7 }).map((_, index) => (
+              <tr key={index} className="border-b border-slate-100 last:border-b-0">
+                <td className="px-3 py-3">
+                  <div className="h-4 w-20 animate-pulse rounded bg-slate-200" />
+                </td>
+
+                <td className="px-3 py-3">
+                  <div className="h-4 w-28 animate-pulse rounded bg-slate-200" />
+                </td>
+
+                <td className="px-3 py-3">
+                  <div className="h-4 w-28 animate-pulse rounded bg-slate-200" />
+                </td>
+
+                <td className="px-3 py-3">
+                  <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                </td>
+
+                <td className="px-3 py-3">
+                  <div className="h-6 w-16 animate-pulse rounded-full bg-slate-200" />
+                </td>
+
+                <td className="px-3 py-3">
+                  <div className="h-4 w-24 animate-pulse rounded bg-slate-200" />
+                </td>
+
+                <td className="px-3 py-3">
+                  <div className="ml-auto h-4 w-40 animate-pulse rounded bg-slate-200" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   MAIN COMPONENT
+========================================================= */
+
 export function ResetDirectory() {
   const [tab, setTab] = useState("members");
+
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState("");
+
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+
   const [page, setPage] = useState(1);
+
+  /* =====================================================
+     RENEW
+  ===================================================== */
 
   const [renewTarget, setRenewTarget] = useState(null);
   const [renewDate, setRenewDate] = useState("");
@@ -58,33 +203,64 @@ export function ResetDirectory() {
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState("");
 
+  /* =====================================================
+     DESIGNATION
+  ===================================================== */
+
   const [designationTarget, setDesignationTarget] = useState(null);
   const [designationValue, setDesignationValue] = useState("");
   const [savingDesignation, setSavingDesignation] = useState(false);
   const [designationError, setDesignationError] = useState("");
 
+  /* =====================================================
+     SEARCH DEBOUNCE
+  ===================================================== */
+
   useEffect(() => {
-    const timer = setTimeout(() => setSearch(searchInput.trim()), SEARCH_DEBOUNCE_MS);
+    const timer = setTimeout(() => {
+      setSearch(searchInput.trim());
+    }, SEARCH_DEBOUNCE_MS);
+
     return () => clearTimeout(timer);
   }, [searchInput]);
+
+  /* =====================================================
+     RESET PAGE
+  ===================================================== */
 
   useEffect(() => {
     setPage(1);
   }, [tab, search]);
 
+  /* =====================================================
+     LOAD DATA
+  ===================================================== */
+
   const load = async () => {
     setLoading(true);
     setListError("");
+
     try {
       if (tab === "members") {
-        const result = await getMembers({ search, limit: LARGE_BATCH });
-        setRecords(result.members);
+        const result = await getMembers({
+          search,
+          limit: LARGE_BATCH,
+        });
+
+        setRecords(result?.members || []);
       } else {
-        const result = await getPartners({ search, limit: LARGE_BATCH });
-        setRecords(result);
+        const result = await getPartners({
+          search,
+          limit: LARGE_BATCH,
+        });
+
+        setRecords(Array.isArray(result) ? result : []);
       }
     } catch (requestError) {
-      setListError(requestError.message || `Could not load ${tab}.`);
+      const message = requestError?.message || `Could not load ${tab}.`;
+
+      setListError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -92,26 +268,47 @@ export function ResetDirectory() {
 
   useEffect(() => {
     load();
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, search]);
 
+  /* =====================================================
+     PAGINATION
+  ===================================================== */
+
   const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE));
+
   const safePage = Math.min(page, totalPages);
+
   const pageRows = records.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  /* =====================================================
+     SWITCH TAB
+  ===================================================== */
 
   const switchTab = (value) => {
     setTab(value);
     setSearchInput("");
     setSearch("");
+    setPage(1);
   };
+
+  /* =====================================================
+     RENEW
+  ===================================================== */
 
   const openRenew = (record) => {
     setRenewTarget(record);
-    setRenewDate(record.validityTo ? record.validityTo.slice(0, 10) : "");
+
+    setRenewDate(record?.validityTo ? String(record.validityTo).slice(0, 10) : "");
+
     setRenewAmount("");
     setRenewError("");
   };
+
   const closeRenew = () => {
+    if (renewing) return;
+
     setRenewTarget(null);
     setRenewDate("");
     setRenewAmount("");
@@ -120,36 +317,49 @@ export function ResetDirectory() {
 
   const confirmRenew = async (event) => {
     event.preventDefault();
+
     if (!renewDate) {
       setRenewError("Choose the new validity date.");
       return;
     }
+
     if (isTodayOrPast(renewDate)) {
       setRenewError("Validity date must be after today.");
       return;
     }
+
     if (renewAmount && Number(renewAmount) < 0) {
       setRenewError("Amount cannot be negative.");
       return;
     }
+
     setRenewing(true);
     setRenewError("");
+
     try {
       const payload = {
         validityTo: renewDate,
         amount: renewAmount ? Number(renewAmount) : undefined,
       };
-      if (tab === "members") await renewMember(renewTarget.id, payload);
-      else await renewPartner(renewTarget.id, payload);
+
+      if (tab === "members") {
+        await renewMember(renewTarget.id, payload);
+      } else {
+        await renewPartner(renewTarget.id, payload);
+      }
+
       await load();
+
       toast.success(
-        `${nameOf(tab, renewTarget) || "Record"} renewed through ${renewDate}${
+        `${nameOf(tab, renewTarget) || "Record"} renewed successfully through ${renewDate}${
           renewAmount ? ` for ₹${renewAmount}` : ""
         }.`,
       );
+
       closeRenew();
     } catch (requestError) {
-      const message = requestError.message || "Could not renew.";
+      const message = requestError?.message || "Could not renew.";
+
       setRenewError(message);
       toast.error(message);
     } finally {
@@ -157,12 +367,19 @@ export function ResetDirectory() {
     }
   };
 
+  /* =====================================================
+     DESIGNATION
+  ===================================================== */
+
   const openDesignation = (record) => {
     setDesignationTarget(record);
-    setDesignationValue(record.designation || "");
+    setDesignationValue(record?.designation || "");
     setDesignationError("");
   };
+
   const closeDesignation = () => {
+    if (savingDesignation) return;
+
     setDesignationTarget(null);
     setDesignationValue("");
     setDesignationError("");
@@ -170,23 +387,37 @@ export function ResetDirectory() {
 
   const confirmDesignation = async (event) => {
     event.preventDefault();
+
     if (!designationValue.trim()) {
       setDesignationError("Choose or enter a designation.");
       return;
     }
+
     setSavingDesignation(true);
     setDesignationError("");
+
     try {
-      const payload = { ...designationTarget, designation: designationValue.trim() };
-      if (tab === "members") await updateMember(designationTarget.id, payload);
-      else await updatePartner(designationTarget.id, payload);
+      const payload = {
+        ...designationTarget,
+        designation: designationValue.trim(),
+      };
+
+      if (tab === "members") {
+        await updateMember(designationTarget.id, payload);
+      } else {
+        await updatePartner(designationTarget.id, payload);
+      }
+
       await load();
+
       toast.success(
         `${nameOf(tab, designationTarget) || "Record"}'s designation updated to ${designationValue.trim()}.`,
       );
+
       closeDesignation();
     } catch (requestError) {
-      const message = requestError.message || "Could not update designation.";
+      const message = requestError?.message || "Could not update designation.";
+
       setDesignationError(message);
       toast.error(message);
     } finally {
@@ -194,280 +425,477 @@ export function ResetDirectory() {
     }
   };
 
-  return (
-    <section className="space-y-2">
-      <div className="rounded-[3px] border border-slate-300 bg-white px-3 py-2">
-        <h2 className="text-lg font-bold">Reset Directory</h2>
-        <p className="text-[13px] text-slate-500">
-          Quickly renew a member or partner's validity, or update their designation.
-        </p>
-      </div>
+  /* =====================================================
+     RENDER
+  ===================================================== */
 
-      <div className="rounded-[3px] border border-slate-300 bg-white p-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div
-            className="flex gap-2 rounded-[3px] border border-slate-300 bg-slate-50 p-1"
-            role="tablist"
-          >
-            {TABS.map((t) => {
-              const Icon = t.icon;
-              return (
-                <button
-                  key={t.value}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === t.value}
-                  onClick={() => switchTab(t.value)}
-                  className={`inline-flex h-8 items-center gap-1.5 rounded-[3px] px-3 text-[13px] font-semibold transition-colors ${
-                    tab === t.value
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  <Icon className="h-3.5 w-3.5" /> {t.label}
-                </button>
-              );
-            })}
+  return (
+    <section className="w-full space-y-3">
+      {/* =================================================
+          PAGE HEADER
+      ================================================= */}
+
+      <div className="rounded-md border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center gap-3 px-4 py-3 sm:px-5">
+          {/* RED HEADER ICON */}
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-red-50">
+            <RefreshCw className="h-4 w-4 text-red-700" />
           </div>
 
-          <label className="flex items-center gap-2 text-[13px] text-slate-600">
-            Search:
-            <span className="relative">
-              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <input
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder={
-                  tab === "members" ? "Member ID, name, or mobile…" : "Partner ID, name, or mobile…"
-                }
-                aria-label={`Search ${tab}`}
-                className="h-8 w-full rounded-[3px] border border-slate-300 py-1 pl-7 pr-2 text-[13px] sm:w-72"
-              />
-            </span>
-          </label>
-        </div>
+          <div className="min-w-0">
+            <h2 className="text-base font-bold text-slate-800 sm:text-lg">Reset Directory</h2>
 
-        {listError && (
-          <p
-            role="alert"
-            className="mt-3 rounded-[3px] bg-red-50 px-3 py-2 text-[13px] text-red-700"
-          >
-            {listError}
-          </p>
-        )}
-
-        {loading ? (
-          <>
-            <div className="mt-3 space-y-2 md:hidden">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <div key={index} className="h-24 animate-pulse rounded-[3px] bg-slate-100" />
-              ))}
-            </div>
-            <DirectoryTableSkeleton columns={7} />
-          </>
-        ) : pageRows.length === 0 ? (
-          <div className="mt-3 flex min-h-48 flex-col items-center justify-center rounded-[3px] border border-dashed border-slate-300">
-            <Users className="h-9 w-9 text-slate-300" />
-            <p className="mt-3 text-[13px] font-semibold text-slate-500">
-              {search ? `No ${tab} match your search` : `No ${tab} found`}
+            <p className="text-xs text-slate-500 sm:text-[13px]">
+              Renew member or partner validity and update designations.
             </p>
           </div>
-        ) : (
-          <>
-            <div className="mt-3 space-y-2 md:hidden">
-              {pageRows.map((record) => {
-                const isEffectivelyActive = record.isActive && !isExpired(record);
+        </div>
+      </div>
+
+      {/* =================================================
+          MAIN CONTENT
+      ================================================= */}
+
+      <div className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+        {/* =================================================
+            TOOLBAR
+        ================================================= */}
+
+        <div className="border-b border-slate-200 bg-slate-50/70 px-3 py-3 sm:px-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            {/* Tabs */}
+
+            <div
+              className="flex w-full rounded-md border border-slate-200 bg-white p-1 sm:w-auto"
+              role="tablist"
+            >
+              {TABS.map((item) => {
+                const Icon = item.icon;
+                const active = tab === item.value;
+
                 return (
-                  <div key={record.id} className="rounded-[3px] border border-slate-300 p-2.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <Link
-                        to={detailsRouteOf(tab)}
-                        params={{ slug: slugOf(tab, record) }}
-                        className="min-w-0 transition-colors hover:underline"
-                      >
-                        <p className="truncate text-[13px] font-semibold">{nameOf(tab, record)}</p>
-                        <p className="text-xs text-slate-500">ID: {displayIdOf(tab, record)}</p>
-                      </Link>
-                      <StatusBadge active={isEffectivelyActive} />
-                    </div>
-                    <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                      <div>
-                        <dt className="text-slate-400">Designation</dt>
-                        <dd className="truncate text-slate-600">{record.designation || "—"}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-slate-400">Mobile</dt>
-                        <dd className="truncate text-slate-600">{record.mobile || "—"}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-slate-400">Days Remaining</dt>
-                        <dd
-                          className={`truncate font-semibold ${isExpired(record) ? "text-red-600" : isExpiringSoon(record) ? "text-amber-600" : "text-slate-600"}`}
-                        >
-                          {expiryLabel(daysRemaining(record))}
-                        </dd>
-                      </div>
-                    </dl>
-                    <div className="mt-2 flex flex-wrap justify-end gap-4 border-t border-slate-100 pt-2">
-                      <Link
-                        to={detailsRouteOf(tab)}
-                        params={{ slug: slugOf(tab, record) }}
-                        className="inline-flex items-center gap-1 text-[13px] font-semibold text-slate-600 hover:text-sky-700"
-                      >
-                        <Eye className="h-3.5 w-3.5" /> View
-                      </Link>
-                      <button
-                        onClick={() => openRenew(record)}
-                        className="inline-flex items-center gap-1 text-[13px] font-semibold text-emerald-700 hover:text-emerald-800"
-                      >
-                        <RefreshCw className="h-3.5 w-3.5" /> Renew
-                      </button>
-                      <button
-                        onClick={() => openDesignation(record)}
-                        className="inline-flex items-center gap-1 text-[13px] font-semibold text-slate-600 hover:text-sky-700"
-                      >
-                        <Tag className="h-3.5 w-3.5" /> Designation
-                      </button>
-                    </div>
-                  </div>
+                  <button
+                    key={item.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => switchTab(item.value)}
+                    className={`
+                      inline-flex h-9 flex-1 items-center
+                      justify-center gap-1.5 rounded-[4px]
+                      px-4 text-xs font-semibold
+                      transition-all
+                      sm:flex-none sm:text-[13px]
+
+                      ${
+                        active
+                          ? "bg-red-700 text-white shadow-sm"
+                          : "text-slate-600 hover:bg-slate-100"
+                      }
+                    `}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {item.label}
+                  </button>
                 );
               })}
             </div>
 
-            <div className="mt-3 hidden overflow-x-auto scrollbar-hide rounded-[3px] border border-slate-300 md:block">
-              <table className="w-full min-w-175 text-left text-[13px]">
-                <thead className="bg-slate-50 text-slate-500">
-                  <tr>
-                    <th className="px-2.5 py-2">
-                      {tab === "members" ? "Member ID" : "Partner ID"}
-                    </th>
-                    <th className="px-2.5 py-2">Name</th>
-                    <th className="px-2.5 py-2">Designation</th>
-                    <th className="px-2.5 py-2">Mobile</th>
-                    <th className="px-2.5 py-2">Status</th>
-                    <th className="px-2.5 py-2">Days Remaining</th>
-                    <th className="px-2.5 py-2 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pageRows.map((record, index) => {
-                    const isEffectivelyActive = record.isActive && !isExpired(record);
-                    return (
-                      <tr
-                        key={record.id}
-                        className={`border-t border-slate-200 ${index % 2 === 0 ? "bg-rose-50/70" : "bg-white"}`}
-                      >
-                        <td className="px-2.5 py-2 font-medium">{displayIdOf(tab, record)}</td>
-                        <td className="px-2.5 py-2">
-                          <Link
-                            to={detailsRouteOf(tab)}
-                            params={{ slug: slugOf(tab, record) }}
-                            className="transition-colors hover:text-sky-700 hover:underline"
-                          >
-                            {nameOf(tab, record)}
-                          </Link>
-                        </td>
-                        <td className="px-2.5 py-2 text-slate-600">{record.designation || "—"}</td>
-                        <td className="px-2.5 py-2 text-slate-600">{record.mobile || "—"}</td>
-                        <td className="px-2.5 py-2">
-                          <StatusBadge active={isEffectivelyActive} />
-                        </td>
-                        <td
-                          className={`px-2.5 py-2 font-semibold ${isExpired(record) ? "text-red-600" : isExpiringSoon(record) ? "text-amber-600" : "text-slate-600"}`}
-                        >
-                          {expiryLabel(daysRemaining(record))}
-                        </td>
-                        <td className="px-2.5 py-2">
-                          <div className="flex justify-end gap-3">
-                            <Link
-                              to={detailsRouteOf(tab)}
-                              params={{ slug: slugOf(tab, record) }}
-                              className="inline-flex items-center gap-1 font-semibold text-slate-600 hover:text-sky-700"
-                            >
-                              <Eye className="h-3.5 w-3.5" /> View
-                            </Link>
-                            <button
-                              onClick={() => openRenew(record)}
-                              className="inline-flex items-center gap-1 font-semibold text-emerald-700 hover:text-emerald-800"
-                            >
-                              <RefreshCw className="h-3.5 w-3.5" /> Renew
-                            </button>
-                            <button
-                              onClick={() => openDesignation(record)}
-                              className="inline-flex items-center gap-1 font-semibold text-slate-600 hover:text-sky-700"
-                            >
-                              <Tag className="h-3.5 w-3.5" /> Designation
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            {/* Search */}
+
+            <div className="w-full lg:max-w-sm">
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+                <input
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  placeholder={
+                    tab === "members"
+                      ? "Search Member ID, name or mobile..."
+                      : "Search Partner ID, name or mobile..."
+                  }
+                  aria-label={`Search ${tab}`}
+                  className="
+                    h-9 w-full rounded-md
+                    border border-slate-300
+                    bg-white pl-9 pr-3
+                    text-xs outline-none
+                    transition-all
+                    placeholder:text-slate-400
+                    hover:border-slate-400
+                    focus:border-red-700
+                    focus:ring-2
+                    focus:ring-red-100
+                    sm:text-[13px]
+                  "
+                />
+              </label>
             </div>
-          </>
+          </div>
+        </div>
+
+        {/* =================================================
+            ERROR
+        ================================================= */}
+
+        {listError && (
+          <div className="mx-3 mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 sm:mx-4 sm:text-[13px]">
+            {listError}
+          </div>
         )}
 
-        {records.length > 0 && (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[13px] text-slate-500">
-            <p>
-              Showing {(safePage - 1) * PAGE_SIZE + 1}–
-              {Math.min(safePage * PAGE_SIZE, records.length)} of {records.length}
-            </p>
-            <div className="flex gap-2">
-              <button
-                disabled={safePage <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="rounded-[3px] border border-slate-300 px-2.5 py-1 font-semibold transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-              >
-                Previous
-              </button>
-              <button
-                disabled={safePage >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="rounded-[3px] border border-slate-300 px-2.5 py-1 font-semibold transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-              >
-                Next
-              </button>
+        {/* =================================================
+            LOADING
+        ================================================= */}
+
+        {loading ? (
+          <div className="p-3 sm:p-4">
+            <ResetDirectoryTableSkeleton />
+          </div>
+        ) : pageRows.length === 0 ? (
+          /* =================================================
+             EMPTY
+          ================================================= */
+
+          <div className="mx-3 my-4 flex min-h-52 flex-col items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50/50 sm:mx-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+              <Users className="h-6 w-6 text-slate-400" />
             </div>
+
+            <p className="mt-3 text-sm font-semibold text-slate-600">
+              {search ? `No ${tab} match your search` : `No ${tab} found`}
+            </p>
+
+            {search && (
+              <p className="mt-1 text-xs text-slate-400">Try searching with a different keyword.</p>
+            )}
+          </div>
+        ) : (
+          /* =================================================
+             TABLE
+          ================================================= */
+
+          <div className="p-3 sm:p-4">
+            <div className="overflow-hidden rounded-md border border-slate-200">
+              <div className="w-full overflow-x-auto scrollbar-hide">
+                <table className="w-full min-w-[1050px] text-left text-[13px]">
+                  {/* Header */}
+
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 font-semibold text-slate-500">
+                        {tab === "members" ? "Member ID" : "Partner ID"}
+                      </th>
+
+                      <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 font-semibold text-slate-500">
+                        Name
+                      </th>
+
+                      <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 font-semibold text-slate-500">
+                        Designation
+                      </th>
+
+                      <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 font-semibold text-slate-500">
+                        Mobile
+                      </th>
+
+                      <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 font-semibold text-slate-500">
+                        Status
+                      </th>
+
+                      <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 font-semibold text-slate-500">
+                        Days Remaining
+                      </th>
+
+                      <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-right font-semibold text-slate-500">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+
+                  {/* Body */}
+
+                  <tbody>
+                    {pageRows.map((record, index) => {
+                      const isEffectivelyActive = record.isActive && !isExpired(record);
+
+                      const expired = isExpired(record);
+                      const expiringSoon = isExpiringSoon(record);
+
+                      return (
+                        <tr
+                          key={record.id}
+                          className={`
+                            border-b border-slate-100
+                            last:border-b-0
+                            transition-colors
+                            hover:bg-red-50/40
+                            ${index % 2 === 0 ? "bg-white" : "bg-slate-50/40"}
+                          `}
+                        >
+                          {/* ID */}
+
+                          <td className="whitespace-nowrap px-3 py-3">
+                            <span className="font-semibold text-slate-700">
+                              {displayIdOf(tab, record) || "—"}
+                            </span>
+                          </td>
+
+                          {/* Name */}
+
+                          <td className="px-3 py-3">
+                            <Link
+                              to={detailsRouteOf(tab)}
+                              params={{
+                                slug: slugOf(tab, record),
+                              }}
+                              className="
+                                font-semibold
+                                text-slate-700
+                                transition-colors
+                                hover:text-red-700
+                                hover:underline
+                              "
+                            >
+                              {nameOf(tab, record) || "—"}
+                            </Link>
+                          </td>
+
+                          {/* Designation */}
+
+                          <td className="max-w-[180px] px-3 py-3">
+                            <span className="block truncate text-slate-600">
+                              {record.designation || "—"}
+                            </span>
+                          </td>
+
+                          {/* Mobile */}
+
+                          <td className="whitespace-nowrap px-3 py-3 text-slate-600">
+                            {record.mobile || "—"}
+                          </td>
+
+                          {/* Status */}
+
+                          <td className="whitespace-nowrap px-3 py-3">
+                            <StatusBadge active={isEffectivelyActive} />
+                          </td>
+
+                          {/* Days Remaining */}
+
+                          <td
+                            className={`
+                              whitespace-nowrap
+                              px-3 py-3
+                              font-semibold
+
+                              ${
+                                expired
+                                  ? "text-red-600"
+                                  : expiringSoon
+                                    ? "text-amber-600"
+                                    : "text-slate-600"
+                              }
+                            `}
+                          >
+                            {expiryLabel(daysRemaining(record))}
+                          </td>
+
+                          {/* Actions */}
+
+                          <td className="whitespace-nowrap px-3 py-3">
+                            <div className="flex justify-end gap-1">
+                              {/* View */}
+
+                              <Link
+                                to={detailsRouteOf(tab)}
+                                params={{
+                                  slug: slugOf(tab, record),
+                                }}
+                                className="
+                                  inline-flex h-8
+                                  items-center gap-1
+                                  rounded-[4px]
+                                  px-2.5
+                                  text-xs font-semibold
+                                  text-slate-600
+                                  transition-colors
+                                  hover:bg-red-50
+                                  hover:text-red-700
+                                "
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                View
+                              </Link>
+
+                              {/* Renew */}
+
+                              <button
+                                type="button"
+                                onClick={() => openRenew(record)}
+                                className="
+                                  inline-flex h-8
+                                  items-center gap-1
+                                  rounded-[4px]
+                                  px-2.5
+                                  text-xs font-semibold
+                                  text-emerald-700
+                                  transition-colors
+                                  hover:bg-emerald-50
+                                  hover:text-emerald-800
+                                "
+                              >
+                                <RefreshCw className="h-3.5 w-3.5" />
+                                Renew
+                              </button>
+
+                              {/* Designation */}
+
+                              <button
+                                type="button"
+                                onClick={() => openDesignation(record)}
+                                className="
+                                  inline-flex h-8
+                                  items-center gap-1
+                                  rounded-[4px]
+                                  px-2.5
+                                  text-xs font-semibold
+                                  text-slate-600
+                                  transition-colors
+                                  hover:bg-red-50
+                                  hover:text-red-700
+                                "
+                              >
+                                <Tag className="h-3.5 w-3.5" />
+                                Designation
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Scroll Hint */}
+
+              <div className="border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-center text-[11px] text-slate-400 sm:hidden">
+                Swipe left/right to view the complete table
+              </div>
+            </div>
+
+            {/* =================================================
+                PAGINATION
+            ================================================= */}
+
+            {records.length > 0 && (
+              <div className="mt-3 flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:text-[13px]">
+                <p>
+                  Showing{" "}
+                  <span className="font-semibold text-slate-700">
+                    {(safePage - 1) * PAGE_SIZE + 1}
+                  </span>{" "}
+                  –{" "}
+                  <span className="font-semibold text-slate-700">
+                    {Math.min(safePage * PAGE_SIZE, records.length)}
+                  </span>{" "}
+                  of <span className="font-semibold text-slate-700">{records.length}</span>
+                </p>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={safePage <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    className="
+                      h-8 rounded-md
+                      border border-slate-300
+                      bg-white px-3
+                      text-xs font-semibold
+                      text-slate-600
+                      transition-colors
+                      hover:border-red-700
+                      hover:text-red-700
+                      disabled:cursor-not-allowed
+                      disabled:opacity-40
+                    "
+                  >
+                    Previous
+                  </button>
+
+                  <span
+                    className="
+                      hidden h-8
+                      items-center
+                      rounded-md
+                      border border-slate-200
+                      bg-slate-50
+                      px-3
+                      text-xs font-semibold
+                      text-slate-600
+                      sm:flex
+                    "
+                  >
+                    Page {safePage} of {totalPages}
+                  </span>
+
+                  <button
+                    type="button"
+                    disabled={safePage >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    className="
+                      h-8 rounded-md
+                      border border-slate-300
+                      bg-white px-3
+                      text-xs font-semibold
+                      text-slate-600
+                      transition-colors
+                      hover:border-red-700
+                      hover:text-red-700
+                      disabled:cursor-not-allowed
+                      disabled:opacity-40
+                    "
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
 
+      {/* =====================================================
+          RENEW MODAL
+      ===================================================== */}
+
       {renewTarget && (
-        <div
-          className="fixed inset-0 z-50 flex animate-in items-center justify-center bg-slate-950/45 p-4 fade-in-0 duration-150"
-          role="dialog"
-          aria-modal="true"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) closeRenew();
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") closeRenew();
-          }}
+        <Modal
+          title={`Renew ${tab === "members" ? "Membership" : "Partnership"}`}
+          description={`${
+            nameOf(tab, renewTarget) || "This record"
+          } — set the new validity details.`}
+          onClose={closeRenew}
         >
-          <form
-            onSubmit={confirmRenew}
-            className="w-full max-w-sm animate-in rounded-[3px] bg-white p-5 shadow-2xl zoom-in-95 duration-150"
-          >
-            <h3 className="text-lg font-bold text-slate-800">
-              Renew {tab === "members" ? "membership" : "partnership"}
-            </h3>
-            <p className="mt-1 text-sm text-slate-500">
-              {nameOf(tab, renewTarget) || "This record"} — set the new validity date.
-            </p>
-            <label className="mt-4 block text-[13px] font-semibold text-slate-700">
+          <form onSubmit={confirmRenew} className="space-y-4">
+            {/* Date */}
+
+            <label className="block text-[13px] font-semibold text-slate-700">
               New Validity To
               <input
                 type="date"
                 required
                 value={renewDate}
-                onChange={(e) => setRenewDate(e.target.value)}
-                className={`${inputClass} mt-1`}
+                onChange={(event) => setRenewDate(event.target.value)}
+                className={`${inputClass} mt-1 w-full`}
               />
             </label>
-            <label className="mt-3 block text-[13px] font-semibold text-slate-700">
+
+            {/* Amount */}
+
+            <label className="block text-[13px] font-semibold text-slate-700">
               Amount Paid (₹)
               <input
                 type="number"
@@ -475,96 +903,149 @@ export function ResetDirectory() {
                 step="0.01"
                 placeholder="e.g. 5000"
                 value={renewAmount}
-                onChange={(e) => setRenewAmount(e.target.value)}
-                className={`${inputClass} mt-1`}
+                onChange={(event) => setRenewAmount(event.target.value)}
+                className={`${inputClass} mt-1 w-full`}
               />
             </label>
+
+            {/* Error */}
+
             {renewError && (
-              <p role="alert" className="mt-2 text-[13px] text-red-600">
+              <div
+                role="alert"
+                className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 sm:text-[13px]"
+              >
                 {renewError}
-              </p>
+              </div>
             )}
-            <div className="mt-5 flex justify-end gap-2">
+
+            {/* Buttons */}
+
+            <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={closeRenew}
-                className="h-9 rounded-[3px] bg-slate-100 px-4 text-[13px] font-semibold text-slate-600 transition-colors hover:bg-slate-200"
+                disabled={renewing}
+                className="
+                  h-9 rounded-md
+                  bg-slate-100 px-4
+                  text-xs font-semibold
+                  text-slate-600
+                  transition-colors
+                  hover:bg-slate-200
+                  disabled:opacity-50
+                  sm:text-[13px]
+                "
               >
                 Cancel
               </button>
+
               <button
                 type="submit"
                 disabled={renewing}
-                className="h-9 rounded-[3px] bg-emerald-600 px-4 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+                className="
+                  inline-flex h-9
+                  items-center justify-center
+                  gap-2 rounded-md
+                  bg-red-700 px-4
+                  text-xs font-semibold
+                  text-white
+                  shadow-sm
+                  transition-colors
+                  hover:bg-red-800
+                  disabled:cursor-not-allowed
+                  disabled:opacity-60
+                  sm:text-[13px]
+                "
               >
-                {renewing ? "Renewing…" : "Renew"}
+                {renewing && <LoaderCircle className="h-4 w-4 animate-spin" />}
+
+                {renewing ? "Renewing..." : "Renew"}
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
 
+      {/* =====================================================
+          DESIGNATION MODAL
+      ===================================================== */}
+
       {designationTarget && (
-        <div
-          className="fixed inset-0 z-50 flex animate-in items-center justify-center bg-slate-950/45 p-4 fade-in-0 duration-150"
-          role="dialog"
-          aria-modal="true"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) closeDesignation();
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") closeDesignation();
-          }}
+        <Modal
+          title="Change Designation"
+          description={`${
+            nameOf(tab, designationTarget) || "This record"
+          } — update their designation.`}
+          onClose={closeDesignation}
         >
-          <form
-            onSubmit={confirmDesignation}
-            className="w-full max-w-sm animate-in rounded-[3px] bg-white p-5 shadow-2xl zoom-in-95 duration-150"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3 className="text-lg font-bold text-slate-800">Change designation</h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  {nameOf(tab, designationTarget) || "This record"} — update their designation.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeDesignation}
-                aria-label="Close"
-                className="rounded-[3px] p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <label className="mt-4 block text-[13px] font-semibold text-slate-700">
+          <form onSubmit={confirmDesignation} className="space-y-4">
+            {/* Designation */}
+
+            <label className="block text-[13px] font-semibold text-slate-700">
               Designation
               <div className="mt-1">
                 <DesignationCombobox value={designationValue} onChange={setDesignationValue} />
               </div>
             </label>
+
+            {/* Error */}
+
             {designationError && (
-              <p role="alert" className="mt-2 text-[13px] text-red-600">
+              <div
+                role="alert"
+                className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 sm:text-[13px]"
+              >
                 {designationError}
-              </p>
+              </div>
             )}
-            <div className="mt-5 flex justify-end gap-2">
+
+            {/* Buttons */}
+
+            <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={closeDesignation}
-                className="h-9 rounded-[3px] bg-slate-100 px-4 text-[13px] font-semibold text-slate-600 transition-colors hover:bg-slate-200"
+                disabled={savingDesignation}
+                className="
+                  h-9 rounded-md
+                  bg-slate-100 px-4
+                  text-xs font-semibold
+                  text-slate-600
+                  transition-colors
+                  hover:bg-slate-200
+                  disabled:opacity-50
+                  sm:text-[13px]
+                "
               >
                 Cancel
               </button>
+
               <button
                 type="submit"
                 disabled={savingDesignation}
-                className="h-9 rounded-[3px] bg-blue-600 px-4 text-[13px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+                className="
+                  inline-flex h-9
+                  items-center justify-center
+                  gap-2 rounded-md
+                  bg-red-700 px-4
+                  text-xs font-semibold
+                  text-white
+                  shadow-sm
+                  transition-colors
+                  hover:bg-red-800
+                  disabled:cursor-not-allowed
+                  disabled:opacity-60
+                  sm:text-[13px]
+                "
               >
-                {savingDesignation ? "Saving…" : "Save Designation"}
+                {savingDesignation && <LoaderCircle className="h-4 w-4 animate-spin" />}
+
+                {savingDesignation ? "Saving..." : "Save Designation"}
               </button>
             </div>
           </form>
-        </div>
+        </Modal>
       )}
     </section>
   );

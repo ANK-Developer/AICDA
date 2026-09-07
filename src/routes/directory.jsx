@@ -6,6 +6,7 @@ import { Prose } from "@/components/site/ContentBlocks";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getGalleryImages } from "@/lib/gallery-api";
+import { getMediaUrl } from "@/lib/config";
 
 export const Route = createFileRoute("/directory")({
   head: () => ({
@@ -29,6 +30,18 @@ export const Route = createFileRoute("/directory")({
 });
 
 const PAGE_SIZE = 12;
+
+function imageUrl(image) {
+  const filePath =
+    image?.imageUrl ||
+    image?.url ||
+    image?.secure_url ||
+    image?.image?.url ||
+    image?.image?.secure_url ||
+    "";
+
+  return getMediaUrl(filePath);
+}
 
 function Page() {
   const [images, setImages] = useState([]);
@@ -123,7 +136,7 @@ function Page() {
               onClick={() => setOpenIndex((currentPage - 1) * PAGE_SIZE + localIndex)}
               className="overflow-hidden rounded-xl border border-border shadow-[var(--shadow-card)] bg-card text-left cursor-pointer"
             >
-              <img src={image.imageUrl} alt={image.title} className="w-full h-72 object-cover" />
+              <img src={imageUrl(image)} alt={image.title} className="w-full h-72 object-cover" />
 
               <div className="p-4">
                 <h3 className="font-semibold text-lg">{image.title}</h3>
@@ -166,7 +179,7 @@ function Page() {
           {current && (
             <div className="relative">
               <img
-                src={current.imageUrl}
+                src={imageUrl(current)}
                 alt={current.title}
                 className="max-h-[80vh] w-full object-cover sm:object-contain bg-black"
               />

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toPng } from "html-to-image";
 import { toast } from "sonner";
+import { getMediaUrl } from "@/lib/config";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMemberDetails, renewMember } from "@/lib/member-api";
@@ -547,7 +548,7 @@ export function MemberDetails({ slug }) {
               {member.photo ? (
                 <div className="overflow-hidden rounded-[5px] border border-slate-200 bg-slate-50">
                   <img
-                    src={member.photo}
+                    src={getMediaUrl(member.photo)}
                     alt={member.memberName || "Member"}
                     className="h-40 w-40 object-cover"
                   />

@@ -7,6 +7,7 @@ import {
   updateGalleryImage,
   uploadGalleryImage,
 } from "@/lib/gallery-api";
+import { getMediaUrl } from "@/lib/config";
 import { BANNER_SECTIONS } from "@/lib/banner-sections";
 import { invalidateBannerCache } from "@/hooks/use-banners";
 
@@ -210,8 +211,8 @@ export function BannerManagement() {
                   className="flex items-center gap-3 rounded-lg border border-slate-200 p-2.5"
                 >
                   <img
-                    src={banner.imageUrl}
-                    alt={sectionLabel(banner.title)}
+                    src={getMediaUrl(banner?.imageUrl)}
+                    alt={sectionLabel(banner?.title)}
                     className="h-14 w-14 shrink-0 rounded-lg border border-slate-200 object-cover"
                   />
                   <div className="min-w-0 flex-1">
@@ -258,7 +259,7 @@ export function BannerManagement() {
                     >
                       <td className="px-3 py-2">
                         <img
-                          src={banner.imageUrl}
+                          src={getMediaUrl(banner.imageUrl)}
                           alt={sectionLabel(banner.title)}
                           className="h-14 w-14 rounded-lg border border-slate-200 object-cover"
                         />
@@ -350,7 +351,7 @@ export function BannerManagement() {
                 {preview || existing?.imageUrl ? (
                   <>
                     <img
-                      src={preview || existing.imageUrl}
+                      src={preview || getMediaUrl(existing.imageUrl)}
                       alt={`${section.label} banner`}
                       className="absolute inset-0 h-full w-full object-cover"
                     />

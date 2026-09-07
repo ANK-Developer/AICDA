@@ -5,6 +5,7 @@ import { GallerySkeleton } from "@/components/site/GallerySkeleton";
 import { PageShell } from "@/components/site/PageShell";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { getGalleryImages } from "@/lib/gallery-api";
+import { getMediaUrl } from "@/lib/config";
 
 export const Route = createFileRoute("/letter")({
   head: () => ({
@@ -28,6 +29,18 @@ export const Route = createFileRoute("/letter")({
 });
 
 const PAGE_SIZE = 12;
+
+function imageUrl(image) {
+  const filePath =
+    image?.imageUrl ||
+    image?.url ||
+    image?.secure_url ||
+    image?.image?.url ||
+    image?.image?.secure_url ||
+    "";
+
+  return getMediaUrl(filePath);
+}
 
 function Page() {
   const [letters, setLetters] = useState([]);
@@ -112,13 +125,12 @@ function Page() {
               className="group relative overflow-hidden rounded-xl border border-border bg-card shadow-[var(--shadow-card)] text-left cursor-pointer"
             >
               <img
-                src={letter.imageUrl}
+                src={imageUrl(letter)}
                 alt={letter.title}
                 className="aspect-[3/4] h-55 w-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
               />
-
               <span className="absolute inset-x-0 bottom-0 bg-black/70 text-white text-xs sm:text-sm font-semibold px-3 py-2 text-center">
-                {letter.title}
+                {letter?.description}
               </span>
             </button>
           ))}
@@ -154,7 +166,7 @@ function Page() {
           {current && (
             <div className="relative">
               <img
-                src={current.imageUrl}
+                src={imageUrl(current)}
                 alt={current.title}
                 className="max-h-[80vh] w-full object-contain bg-black"
               />

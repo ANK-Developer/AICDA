@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 
 import { toast } from "react-toastify";
-
 import { Skeleton } from "@/components/ui/skeleton";
+import { getMediaUrl } from "@/lib/config";
 
 import {
   getGalleryImages,
@@ -46,13 +46,17 @@ const PAGE_SIZE = 12;
 /* HELPERS                                                                    */
 /* -------------------------------------------------------------------------- */
 
-const imageUrl = (image) =>
-  image?.imageUrl ||
-  image?.url ||
-  image?.secure_url ||
-  image?.image?.url ||
-  image?.image?.secure_url ||
-  "";
+const imageUrl = (image) => {
+  const filePath =
+    image?.imageUrl ||
+    image?.url ||
+    image?.secure_url ||
+    image?.image?.url ||
+    image?.image?.secure_url ||
+    "";
+
+  return getMediaUrl(filePath);
+};
 
 const imageId = (image) => image?.id || image?._id;
 
@@ -202,6 +206,7 @@ function MediaViewModal({ image, onClose }) {
       onClose={onClose}
       maxWidth="max-w-4xl"
     >
+      {/* Media */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950">
         {video ? (
           <video
@@ -229,6 +234,20 @@ function MediaViewModal({ image, onClose }) {
         )}
       </div>
 
+      {/* Description */}
+      {image.description && (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+            Description
+          </p>
+
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+            {image.description}
+          </p>
+        </div>
+      )}
+
+      {/* Details */}
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
           <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Category</p>
@@ -245,6 +264,7 @@ function MediaViewModal({ image, onClose }) {
         </div>
       </div>
 
+      {/* Close */}
       <div className="mt-4 flex justify-end">
         <button
           type="button"
@@ -276,13 +296,20 @@ function MediaViewModal({ image, onClose }) {
 function GalleryForm({ image, onClose, onSaved }) {
   const [category, setCategory] = useState(image?.category || "ASSOCIATION");
 
+  const [description, setDescription] = useState(image?.description || "");
+
   const [file, setFile] = useState(null);
+
   const [preview, setPreview] = useState(imageUrl(image));
 
   const [saving, setSaving] = useState(false);
+
   const [error, setError] = useState("");
 
-  /* Create and cleanup local file preview */
+  /* ---------------------------------------------------------------------- */
+  /* FILE PREVIEW                                                            */
+  /* ---------------------------------------------------------------------- */
+
   useEffect(() => {
     if (!file) {
       setPreview(imageUrl(image));
@@ -299,6 +326,10 @@ function GalleryForm({ image, onClose, onSaved }) {
   }, [file, image]);
 
   const previewIsVideo = file ? isVideoFile(file) : isVideoUrl(preview);
+
+  /* ---------------------------------------------------------------------- */
+  /* FILE CHANGE                                                             */
+  /* ---------------------------------------------------------------------- */
 
   const handleFileChange = (event) => {
     const selectedFile = event.target.files?.[0];
@@ -321,13 +352,19 @@ function GalleryForm({ image, onClose, onSaved }) {
     setFile(selectedFile);
   };
 
+  /* ---------------------------------------------------------------------- */
+  /* SUBMIT                                                                  */
+  /* ---------------------------------------------------------------------- */
+
   const submit = async (event) => {
     event.preventDefault();
 
     if (!image && !file) {
       const message = "Please select an image or video.";
+
       setError(message);
       toast.error(message);
+
       return;
     }
 
@@ -339,18 +376,19 @@ function GalleryForm({ image, onClose, onSaved }) {
         await updateGalleryImage(imageId(image), {
           file,
           category,
+          description: description.trim(),
         });
 
-        toast.success("Gallery image updated successfully.");
+        toast.success("Gallery media updated successfully.");
       } else {
-        await uploadGalleryImage(file, category);
+        await uploadGalleryImage(file, category, "", description.trim());
 
         toast.success("Image uploaded successfully.");
       }
 
       await onSaved();
     } catch (requestError) {
-      const message = requestError?.message || "Unable to save the gallery image.";
+      const message = requestError?.message || "Unable to save the gallery media.";
 
       setError(message);
       toast.error(message);
@@ -361,7 +399,10 @@ function GalleryForm({ image, onClose, onSaved }) {
 
   return (
     <form onSubmit={submit} className="space-y-5">
-      {/* Category */}
+      {/* ------------------------------------------------------------------ */}
+      {/* CATEGORY                                                            */}
+      {/* ------------------------------------------------------------------ */}
+
       <div>
         <label
           htmlFor="gallery-category"
@@ -400,7 +441,56 @@ function GalleryForm({ image, onClose, onSaved }) {
         </select>
       </div>
 
-      {/* File */}
+      {/* ------------------------------------------------------------------ */}
+      {/* DESCRIPTION                                                         */}
+      {/* ------------------------------------------------------------------ */}
+
+      <div>
+        <label
+          htmlFor="gallery-description"
+          className="mb-1.5 block text-xs font-bold text-slate-700 sm:text-sm"
+        >
+          Description
+          <span className="ml-1 text-red-600">*</span>
+        </label>
+
+        <textarea
+          id="gallery-description"
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder="Enter image or video description..."
+          rows={4}
+          required
+          className="
+            w-full
+            resize-none
+            rounded-lg
+            border
+            border-slate-300
+            bg-white
+            px-3
+            py-2.5
+            text-sm
+            text-slate-700
+            outline-none
+            transition-all
+            placeholder:text-slate-400
+            hover:border-slate-400
+            focus:border-blue-600
+            focus:ring-2
+            focus:ring-blue-100
+          "
+        />
+
+        <p className="mt-1 text-[11px] text-slate-400">
+          Add a short description for this gallery media.
+        </p>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* FILE                                                                 */}
+      {/* ------------------------------------------------------------------ */}
+
       <div>
         <label
           htmlFor="gallery-file"
@@ -476,7 +566,10 @@ function GalleryForm({ image, onClose, onSaved }) {
         </label>
       </div>
 
-      {/* Preview */}
+      {/* ------------------------------------------------------------------ */}
+      {/* PREVIEW                                                             */}
+      {/* ------------------------------------------------------------------ */}
+
       {preview && (
         <div>
           <div className="mb-2 flex items-center justify-between">
@@ -537,7 +630,10 @@ function GalleryForm({ image, onClose, onSaved }) {
         </div>
       )}
 
-      {/* Error */}
+      {/* ------------------------------------------------------------------ */}
+      {/* ERROR                                                               */}
+      {/* ------------------------------------------------------------------ */}
+
       {error && (
         <div
           role="alert"
@@ -554,7 +650,10 @@ function GalleryForm({ image, onClose, onSaved }) {
         </div>
       )}
 
-      {/* Footer */}
+      {/* ------------------------------------------------------------------ */}
+      {/* FOOTER                                                              */}
+      {/* ------------------------------------------------------------------ */}
+
       <div
         className="
           flex flex-col-reverse
@@ -588,7 +687,7 @@ function GalleryForm({ image, onClose, onSaved }) {
 
         <button
           type="submit"
-          disabled={saving || (!image && !file)}
+          disabled={saving || (!image && !file) || !description.trim()}
           className="
             inline-flex
             h-10
@@ -667,12 +766,19 @@ function GalleryTableSkeleton({ rows = 6 }) {
             <th className="px-4 py-3">
               <Skeleton className="h-3 w-16" />
             </th>
+
             <th className="px-4 py-3">
               <Skeleton className="h-3 w-20" />
             </th>
+
             <th className="px-4 py-3">
               <Skeleton className="h-3 w-16" />
             </th>
+
+            <th className="px-4 py-3">
+              <Skeleton className="h-3 w-32" />
+            </th>
+
             <th className="px-4 py-3 text-right">
               <Skeleton className="ml-auto h-3 w-20" />
             </th>
@@ -692,6 +798,10 @@ function GalleryTableSkeleton({ rows = 6 }) {
 
               <td className="px-4 py-3">
                 <Skeleton className="h-4 w-24" />
+              </td>
+
+              <td className="px-4 py-3">
+                <Skeleton className="h-4 w-40" />
               </td>
 
               <td className="px-4 py-3">
@@ -775,18 +885,21 @@ export function GalleryManagement() {
   const [images, setImages] = useState([]);
 
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState("");
 
   const [category, setCategory] = useState("");
+
   const [search, setSearch] = useState("");
 
   const [page, setPage] = useState(1);
 
   const [editing, setEditing] = useState(undefined);
+
   const [viewing, setViewing] = useState(null);
 
   /* ---------------------------------------------------------------------- */
-  /* LOAD IMAGES                                                            */
+  /* LOAD IMAGES                                                             */
   /* ---------------------------------------------------------------------- */
 
   const loadImages = useCallback(async () => {
@@ -818,7 +931,7 @@ export function GalleryManagement() {
   }, [loadImages]);
 
   /* ---------------------------------------------------------------------- */
-  /* SEARCH                                                                 */
+  /* SEARCH                                                                  */
   /* ---------------------------------------------------------------------- */
 
   const visibleImages = images.filter((image) =>
@@ -830,7 +943,7 @@ export function GalleryManagement() {
   );
 
   /* ---------------------------------------------------------------------- */
-  /* PAGINATION                                                             */
+  /* PAGINATION                                                              */
   /* ---------------------------------------------------------------------- */
 
   const totalPages = Math.max(1, Math.ceil(visibleImages.length / PAGE_SIZE));
@@ -844,7 +957,7 @@ export function GalleryManagement() {
   }, [category, search]);
 
   /* ---------------------------------------------------------------------- */
-  /* SAVED                                                                  */
+  /* SAVED                                                                   */
   /* ---------------------------------------------------------------------- */
 
   const saved = async () => {
@@ -853,7 +966,7 @@ export function GalleryManagement() {
   };
 
   /* ---------------------------------------------------------------------- */
-  /* RENDER                                                                 */
+  /* RENDER                                                                  */
   /* ---------------------------------------------------------------------- */
 
   return (
@@ -1180,9 +1293,6 @@ export function GalleryManagement() {
                     key={id}
                     className="
                       group
-                      flex
-                      items-center
-                      gap-3
                       rounded-xl
                       border
                       border-slate-200
@@ -1194,66 +1304,87 @@ export function GalleryManagement() {
                       hover:shadow-md
                     "
                   >
-                    <MediaThumbnail image={image} size="small" />
+                    <div className="flex items-center gap-3">
+                      <MediaThumbnail image={image} size="small" />
 
-                    <div className="min-w-0 flex-1">
-                      <span
-                        className="
-                          inline-flex
-                          max-w-full
-                          rounded-full
-                          bg-blue-50
-                          px-2.5 py-1
-                          text-[10px]
-                          font-bold
-                          text-blue-700
-                        "
-                      >
-                        <span className="truncate">{categoryLabel(image.category)}</span>
-                      </span>
+                      <div className="min-w-0 flex-1">
+                        <span
+                          className="
+                            inline-flex
+                            max-w-full
+                            rounded-full
+                            bg-blue-50
+                            px-2.5 py-1
+                            text-[10px]
+                            font-bold
+                            text-blue-700
+                          "
+                        >
+                          <span className="truncate">{categoryLabel(image.category)}</span>
+                        </span>
 
-                      <div className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-400">
-                        <CalendarDays className="h-3 w-3" />
-                        {formatDate(image.createdAt)}
+                        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-400">
+                          <CalendarDays className="h-3 w-3" />
+
+                          {formatDate(image.createdAt)}
+                        </div>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setViewing(image)}
+                          className="
+                            flex h-8 w-8
+                            items-center justify-center
+                            rounded-lg
+                            bg-blue-50
+                            text-blue-700
+                            transition-all
+                            hover:bg-blue-100
+                          "
+                          title="View"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setEditing(image)}
+                          className="
+                            flex h-8 w-8
+                            items-center justify-center
+                            rounded-lg
+                            bg-slate-100
+                            text-slate-600
+                            transition-all
+                            hover:bg-slate-200
+                            hover:text-slate-900
+                          "
+                          title="Edit"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setViewing(image)}
+                    {/* Mobile Description */}
+                    {image.description && (
+                      <p
                         className="
-                          flex h-8 w-8
-                          items-center justify-center
-                          rounded-lg
-                          bg-blue-50
-                          text-blue-700
-                          transition-all
-                          hover:bg-blue-100
+                          mt-3
+                          border-t
+                          border-slate-100
+                          pt-3
+                          text-xs
+                          leading-5
+                          text-slate-500
+                          line-clamp-2
                         "
-                        title="View"
                       >
-                        <Eye className="h-4 w-4" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setEditing(image)}
-                        className="
-                          flex h-8 w-8
-                          items-center justify-center
-                          rounded-lg
-                          bg-slate-100
-                          text-slate-600
-                          transition-all
-                          hover:bg-slate-200
-                          hover:text-slate-900
-                        "
-                        title="Edit"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                    </div>
+                        {image.description}
+                      </p>
+                    )}
                   </div>
                 );
               })}
@@ -1276,7 +1407,7 @@ export function GalleryManagement() {
               "
             >
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[680px] text-left text-sm">
+                <table className="w-full min-w-[900px] text-left text-sm">
                   <thead>
                     <tr
                       className="
@@ -1321,6 +1452,19 @@ export function GalleryManagement() {
                           text-slate-500
                         "
                       >
+                        Description
+                      </th>
+
+                      <th
+                        className="
+                          px-4 py-3
+                          text-[11px]
+                          font-bold
+                          uppercase
+                          tracking-wider
+                          text-slate-500
+                        "
+                      >
                         Uploaded
                       </th>
 
@@ -1341,7 +1485,7 @@ export function GalleryManagement() {
                   </thead>
 
                   <tbody>
-                    {pageImages.map((image, index) => {
+                    {pageImages.map((image) => {
                       const id = imageId(image);
 
                       return (
@@ -1361,7 +1505,7 @@ export function GalleryManagement() {
                               <MediaThumbnail image={image} />
 
                               <div className="hidden lg:block">
-                                <p className="max-w-[240px] truncate text-sm font-semibold text-slate-800">
+                                <p className="max-w-[200px] truncate text-sm font-semibold text-slate-800">
                                   {image.title || "Gallery media"}
                                 </p>
 
@@ -1388,6 +1532,22 @@ export function GalleryManagement() {
                             >
                               {categoryLabel(image.category)}
                             </span>
+                          </td>
+
+                          {/* Description */}
+                          <td className="px-4 py-3">
+                            <p
+                              className="
+                                max-w-[300px]
+                                truncate
+                                text-xs
+                                leading-5
+                                text-slate-500
+                              "
+                              title={image.description || ""}
+                            >
+                              {image.description || "—"}
+                            </p>
                           </td>
 
                           {/* Date */}
@@ -1488,9 +1648,8 @@ export function GalleryManagement() {
             <p className="text-xs text-slate-500">
               Showing{" "}
               <span className="font-bold text-slate-700">{(currentPage - 1) * PAGE_SIZE + 1}</span>{" "}
-              -
+              -{" "}
               <span className="font-bold text-slate-700">
-                {" "}
                 {Math.min(currentPage * PAGE_SIZE, visibleImages.length)}
               </span>{" "}
               of <span className="font-bold text-slate-700">{visibleImages.length}</span>
@@ -1570,13 +1729,13 @@ export function GalleryManagement() {
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* VIEW MODAL                                                          */}
+      {/* VIEW MODAL                                                         */}
       {/* ------------------------------------------------------------------ */}
 
       {viewing && <MediaViewModal image={viewing} onClose={() => setViewing(null)} />}
 
       {/* ------------------------------------------------------------------ */}
-      {/* EDIT / UPLOAD MODAL                                                 */}
+      {/* EDIT / UPLOAD MODAL                                                */}
       {/* ------------------------------------------------------------------ */}
 
       {editing !== undefined && (
@@ -1584,8 +1743,8 @@ export function GalleryManagement() {
           title={editing ? "Edit Gallery Media" : "Upload Gallery Media"}
           description={
             editing
-              ? "Update the category or replace the current media."
-              : "Choose a category and upload an image or video."
+              ? "Update the category, description or replace the current media."
+              : "Choose a category, add a description and upload an image or video."
           }
           onClose={() => setEditing(undefined)}
           maxWidth="max-w-2xl"

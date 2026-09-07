@@ -5,6 +5,7 @@ import { GallerySkeleton } from "@/components/site/GallerySkeleton";
 import { PageShell } from "@/components/site/PageShell";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { getGalleryImages } from "@/lib/gallery-api";
+import { getMediaUrl } from "@/lib/config";
 
 export const Route = createFileRoute("/political-achievements")({
   head: () => ({
@@ -30,9 +31,15 @@ export const Route = createFileRoute("/political-achievements")({
 });
 
 function imageUrl(image) {
-  return (
-    image.imageUrl || image.url || image.secure_url || image.image?.url || image.image?.secure_url
-  );
+  const filePath =
+    image?.imageUrl ||
+    image?.url ||
+    image?.secure_url ||
+    image?.image?.url ||
+    image?.image?.secure_url ||
+    "";
+
+  return getMediaUrl(filePath);
 }
 
 const PAGE_SIZE = 12;
@@ -126,7 +133,7 @@ function Page() {
               />
 
               <span className="absolute inset-x-0 bottom-0 bg-black/70 text-white text-xs sm:text-sm font-semibold px-3 py-2 text-center">
-                {item.title}
+                {item?.description}
               </span>
             </button>
           ))}

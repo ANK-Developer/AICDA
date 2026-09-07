@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MemberIdCard, MemberIdCardBack } from "@/components/site/MemberIdCard";
 import { getPublicMembers } from "@/lib/member-api";
 import { getPublicPartners } from "@/lib/partner-api";
+import { getMediaUrl } from "@/lib/config";
 
 export const Route = createFileRoute("/management")({
   head: () => ({
@@ -48,7 +49,7 @@ function mapMemberToBearer(member) {
     memberId: member.memberId || "",
     validityFrom: member.validityFrom || "",
     validityTo: member.validityTo || "",
-    photo: isDisplayableUrl(member.photo) ? member.photo : null,
+    photo: member.photo ? getMediaUrl(member.photo) : null,
   };
 }
 

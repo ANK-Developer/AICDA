@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { SiteHeader } from "./SiteHeader";
 import { SiteFooter } from "./SiteFooter";
 import { Sidebar } from "./Sidebar";
-import { useBanner } from "@/hooks/use-banners";
+import { getGalleryImages } from "@/lib/gallery-api"; // use your actual path
 
 import banner1 from "@/assets/AICDA13-2.webp.asset.json";
 import banner2 from "@/assets/AICDA12-2.webp.asset.json";
@@ -13,25 +13,46 @@ import banner4 from "@/assets/AICDA10-2.webp.asset.json";
 import banner5 from "@/assets/AICDA9-2.webp.asset.json";
 import banner6 from "@/assets/AICDA8-2.webp.asset.json";
 import banner7 from "@/assets/AICDA6.webp.asset.json";
+import { getMediaUrl } from "../../lib/config";
 
 const BANNERS = [banner1, banner2, banner3, banner4, banner5, banner6, banner7];
 
 export function PageShell({ title, subtitle, children, hideSidebar = false, bannerKey }) {
-  const adminBanner = useBanner(bannerKey);
+   const [apiBanners, setApiBanners] = useState([]);
+   const [currentBanner, setCurrentBanner] = useState(0);
 
-  // Create complete slideshow list
-  const bannerImages = [
-    ...(adminBanner ? [adminBanner] : []),
-    ...BANNERS.map((banner) => banner.url),
-  ];
+   // Get BANNER images directly from gallery API
+   useEffect(() => {
+     const fetchBanners = async () => {
+       try {
+         const data = await getGalleryImages("BANNER");
 
-  const [currentBanner, setCurrentBanner] = useState(0);
+         console.log("Banner API response:", data);
 
+         setApiBanners(data.gallery || []);
+       } catch (error) {
+         console.error("Failed to fetch banners:", error);
+         setApiBanners([]);
+       }
+     };
+
+     fetchBanners();
+   }, []);
+
+   // Replace static images one-by-one with API images
+   const bannerImages = BANNERS.map((staticBanner, index) => {
+     const apiBanner = apiBanners[index];
+
+     if (apiBanner?.imageUrl) {
+       return getMediaUrl(apiBanner.imageUrl);
+     }
+
+     return staticBanner.url;
+   });
   // Reset slideshow when banner list changes
-  useEffect(() => {
-    setCurrentBanner(0);
-  }, [bannerKey, adminBanner]);
-
+ useEffect(() => {
+   setCurrentBanner(0);
+ }, [apiBanners.length]);
   // Automatic image change
   useEffect(() => {
     if (bannerImages.length <= 1) return;

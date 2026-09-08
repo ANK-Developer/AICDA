@@ -18,6 +18,7 @@ function fetchBannerMap() {
       })
       .catch(() => ({}));
   }
+  console.log("Banner Image:")
   return cachedBannersPromise;
 }
 

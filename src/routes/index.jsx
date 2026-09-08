@@ -1,18 +1,55 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+
 import { motion } from "framer-motion";
-import { ShieldCheck, Users, FileText, Award, Newspaper, Bold } from "lucide-react";
+import {
+  ShieldCheck,
+  Users,
+  FileText,
+  Award,
+  Newspaper,
+  ArrowRight,
+  Image as ImageIcon,
+} from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { Sidebar } from "@/components/site/Sidebar";
 import { useBanner } from "@/hooks/use-banners";
 import heroBanner from "@/assets/AICDA8-2.webp.asset.json";
 import aicdaLogo from "@/assets/logoAICDA.png";
-
+import { getDashboardData } from "../lib/dashboard.api";
+import { getMediaUrl } from "../lib/config";
 export const Route = createFileRoute("/")({
   component: Index,
 });
 
 function Index() {
+  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setDashboardLoading(true);
+
+        const data = await getDashboardData();
+
+        console.log("Dashboard API Data:", data);
+
+        setDashboardData(data);
+      } catch (error) {
+        console.error("Dashboard API Error:", error);
+      } finally {
+        setDashboardLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  const event = dashboardData?.event;
+  const image = dashboardData?.image;
+  const politicalAchievement = dashboardData?.politicalAchievement;
+
   const adminHeroBanner = useBanner("home");
   const heroBannerUrl = adminHeroBanner || heroBanner.url;
   const features = [
@@ -174,32 +211,113 @@ function Index() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="grid gap-6 md:grid-cols-2"
+              className="grid gap-6 md:grid-cols-2 xl:grid-cols-3"
             >
-              <Link
-                to="/association-events"
-                className="tilt-3d group rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]"
-              >
-                <Newspaper className="w-8 h-8 text-primary mb-3" />
-                <div className="text-xl font-bold group-hover:text-primary transition">
-                  Latest Events
+              {/* Latest Event */}
+              <div className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1">
+                <div className="relative h-56 shrink-0 overflow-hidden bg-muted">
+                  {event?.imageUrl ? (
+                    <img
+                      src={getMediaUrl(event.imageUrl)}
+                      alt="Latest Event"
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center">
+                      <Newspaper className="h-12 w-12 text-muted-foreground" />
+                    </div>
+                  )}
+
+                  <div className="absolute left-4 top-4 rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground">
+                    Latest Event
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Annual convention, regional meets, dealer skill workshops and industry conclaves.
-                </p>
-              </Link>
-              <Link
-                to="/political-achievements"
-                className="tilt-3d group rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]"
-              >
-                <Award className="w-8 h-8 text-primary mb-3" />
-                <div className="text-xl font-bold group-hover:text-primary transition">
-                  Political Achievements
+
+                <div className="flex flex-1 flex-col p-5">
+                  <p className="line-clamp-3 min-h-[72px] text-sm leading-6 text-muted-foreground">
+                    {event?.description || "No event description available."}
+                  </p>
+
+                  <Link
+                    to="/association-events"
+                    className="mt-auto inline-flex items-center gap-2 pt-5 font-bold text-primary transition-all hover:gap-3"
+                  >
+                    View More
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </div>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Policy wins on GST rationalisation, scrappage norms and dealer licensing reforms.
-                </p>
-              </Link>
+              </div>
+
+              {/* Latest Image */}
+              <div className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1">
+                <div className="relative h-56 shrink-0 overflow-hidden bg-muted">
+                  {image?.imageUrl ? (
+                    <img
+                      src={getMediaUrl(image.imageUrl)}
+                      alt="Latest Image"
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center">
+                      <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                    </div>
+                  )}
+
+                  <div className="absolute left-4 top-4 rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground">
+                    Latest Image
+                  </div>
+                </div>
+
+                <div className="flex flex-1 flex-col p-5">
+                  <p className="line-clamp-3 min-h-[72px] text-sm leading-6 text-muted-foreground">
+                    {image?.description || "No image description available."}
+                  </p>
+
+                  <Link
+                    to="/image"
+                    className="mt-auto inline-flex items-center gap-2 pt-5 font-bold text-primary transition-all hover:gap-3"
+                  >
+                    View More
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
+
+              {/* Latest Political Achievement */}
+              <div className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1">
+                <div className="relative h-56 shrink-0 overflow-hidden bg-muted">
+                  {politicalAchievement?.imageUrl ? (
+                    <img
+                      src={getMediaUrl(politicalAchievement.imageUrl)}
+                      alt="Political Achievement"
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center">
+                      <Award className="h-12 w-12 text-muted-foreground" />
+                    </div>
+                  )}
+
+                  <div className="absolute left-4 top-4 rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground">
+                    Political Achievement
+                  </div>
+                </div>
+
+                <div className="flex flex-1 flex-col p-5">
+                  <p className="line-clamp-3 min-h-[72px] text-sm leading-6 text-muted-foreground">
+                    {politicalAchievement?.description ||
+                      "No political achievement description available."}
+                  </p>
+
+                  <Link
+                    to="/political-achievements"
+                    className="mt-auto inline-flex items-center gap-2 pt-5 font-bold text-primary transition-all hover:gap-3"
+                  >
+                    View More
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
             </motion.div>
           </div>
         </div>

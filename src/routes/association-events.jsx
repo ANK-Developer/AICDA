@@ -115,7 +115,7 @@ function Page() {
           No Association Events Found
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-3">
+        <div className="grid grid-cols-1   px-4 md:px-0 gap-6 sm:grid-cols-3 lg:grid-cols-3">
           {pageEvents.map((event, localIndex) => (
             <button
               key={event.id}

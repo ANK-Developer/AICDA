@@ -137,7 +137,7 @@ function Page() {
       ) : filteredImages.length === 0 ? (
         <div className="py-20 text-center text-muted-foreground">No Results Found</div>
       ) : (
-        <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-3">
+        <div className="grid grid-cols-1 px-5 md:px-0 gap-6 sm:grid-cols-3 lg:grid-cols-3">
           {pageImages.map((image, localIndex) => {
             const url = imageUrl(image);
             const video = isVideoUrl(url);

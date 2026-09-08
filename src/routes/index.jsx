@@ -211,7 +211,7 @@ function Index() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="grid gap-6 md:grid-cols-2 xl:grid-cols-3"
+              className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 px-5 md:px-0"
             >
               {/* Latest Event */}
               <div className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1">

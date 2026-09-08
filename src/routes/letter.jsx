@@ -116,7 +116,7 @@ function Page() {
       {filteredLetters.length === 0 ? (
         <div className="py-20 text-center text-lg text-muted-foreground">No Letters Found</div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 px-5 md:px-0 sm:grid-cols-3 lg:grid-cols-3 gap-6">
           {pageLetters.map((letter, localIndex) => (
             <button
               key={letter.id}

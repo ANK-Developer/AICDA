@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Upload,
   X,
+  Trash2,
 } from "lucide-react";
 
 import { toast } from "react-toastify";
@@ -19,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getMediaUrl } from "@/lib/config";
 
 import {
+  deleteGalleryImage,
   getGalleryImages,
   isVideoFile,
   isVideoUrl,
@@ -897,6 +899,8 @@ export function GalleryManagement() {
   const [editing, setEditing] = useState(undefined);
 
   const [viewing, setViewing] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+  const [deletingLoading, setDeletingLoading] = useState(false);
 
   /* ---------------------------------------------------------------------- */
   /* LOAD IMAGES                                                             */
@@ -963,6 +967,35 @@ export function GalleryManagement() {
   const saved = async () => {
     setEditing(undefined);
     await loadImages();
+  };
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+
+    const id = imageId(deleting);
+
+    if (!id) {
+      toast.error("Gallery image ID not found.");
+      return;
+    }
+
+    setDeletingLoading(true);
+
+    try {
+      await deleteGalleryImage(id);
+
+      toast.success("Gallery media deleted successfully.");
+
+      setDeleting(null);
+
+      await loadImages();
+    } catch (requestError) {
+      const message = requestError?.message || "Unable to delete gallery media.";
+
+      toast.error(message);
+    } finally {
+      setDeletingLoading(false);
+    }
   };
 
   /* ---------------------------------------------------------------------- */
@@ -1365,6 +1398,24 @@ export function GalleryManagement() {
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleting(image)}
+                          className="
+    flex h-8 w-8
+    items-center justify-center
+    rounded-lg
+    bg-red-50
+    text-red-600
+    transition-all
+    hover:bg-red-100
+    hover:text-red-700
+  "
+                          title="Delete"
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
 
@@ -1471,7 +1522,7 @@ export function GalleryManagement() {
                       <th
                         className="
                           px-4 py-3
-                          text-right
+                          text-center
                           text-[11px]
                           font-bold
                           uppercase
@@ -1614,6 +1665,32 @@ export function GalleryManagement() {
                                 <Pencil className="h-3.5 w-3.5" />
                                 Edit
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleting(image)}
+                                className="
+    inline-flex
+    h-8
+    items-center
+    gap-1.5
+    rounded-lg
+    border
+    border-red-200
+    bg-red-50
+    px-3
+    text-xs
+    font-bold
+    text-red-600
+    transition-all
+    hover:border-red-300
+    hover:bg-red-100
+    hover:text-red-700
+  "
+                                title="Delete"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Delete
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -1750,6 +1827,138 @@ export function GalleryManagement() {
           maxWidth="max-w-2xl"
         >
           <GalleryForm image={editing} onClose={() => setEditing(undefined)} onSaved={saved} />
+        </Modal>
+      )}
+
+      {deleting && (
+        <Modal
+          title="Delete Gallery Media?"
+          description="This action cannot be undone."
+          onClose={() => !deletingLoading && setDeleting(null)}
+          maxWidth="max-w-md"
+        >
+          <div className="space-y-5">
+            {/* Warning */}
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+              <div className="flex gap-3">
+                <div
+                  className="
+            flex h-10 w-10 shrink-0
+            items-center justify-center
+            rounded-full
+            bg-red-100
+          "
+                >
+                  <Trash2 className="h-5 w-5 text-red-600" />
+                </div>
+
+                <div>
+                  <p className="text-sm font-bold text-red-800">
+                    Are you sure you want to delete this media?
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-red-700">
+                    The gallery image/video will be permanently removed.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div
+              className="
+        overflow-hidden
+        rounded-xl
+        border
+        border-slate-200
+        bg-slate-950
+      "
+            >
+              {isVideoUrl(imageUrl(deleting)) ? (
+                <video
+                  src={imageUrl(deleting)}
+                  muted
+                  controls
+                  className="h-40 w-full object-contain"
+                />
+              ) : (
+                <img
+                  src={imageUrl(deleting)}
+                  alt={deleting.title || "Gallery media"}
+                  className="h-40 w-full object-contain"
+                />
+              )}
+            </div>
+
+            {/* Buttons */}
+            <div
+              className="
+        flex
+        flex-col-reverse
+        gap-2
+        sm:flex-row
+        sm:justify-end
+      "
+            >
+              <button
+                type="button"
+                onClick={() => setDeleting(null)}
+                disabled={deletingLoading}
+                className="
+            h-10
+            rounded-lg
+            border
+            border-slate-200
+            bg-white
+            px-5
+            text-sm
+            font-semibold
+            text-slate-600
+            transition-all
+            hover:bg-slate-100
+            disabled:cursor-not-allowed
+            disabled:opacity-50
+          "
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={deletingLoading}
+                className="
+            inline-flex
+            h-10
+            items-center
+            justify-center
+            gap-2
+            rounded-lg
+            bg-red-600
+            px-5
+            text-sm
+            font-bold
+            text-white
+            transition-all
+            hover:bg-red-700
+            disabled:cursor-not-allowed
+            disabled:opacity-60
+          "
+              >
+                {deletingLoading ? (
+                  <>
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </section>

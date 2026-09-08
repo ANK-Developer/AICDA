@@ -46,7 +46,7 @@ function DirectoryLayout() {
                 aria-selected={active}
                 className={`inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-[3px] text-[14px] font-semibold transition-colors sm:flex-none sm:px-6 ${
                   active
-                    ? "bg-blue-600 text-white shadow-sm"
+                    ? "bg-red-700 text-white shadow-sm"
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-800"
                 }`}
               >

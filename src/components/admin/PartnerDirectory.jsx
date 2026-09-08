@@ -280,7 +280,7 @@ export function PartnerDirectory() {
                   }}
                   className={`h-8 rounded-full px-3 text-[13px] font-semibold transition-colors ${
                     statusFilter === filter.value
-                      ? "bg-blue-600 text-white"
+                      ? "bg-red-600 text-white"
                       : "border border-slate-300 text-slate-600 hover:bg-slate-50"
                   }`}
                 >

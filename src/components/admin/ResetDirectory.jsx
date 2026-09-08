@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 
 import { Link } from "@tanstack/react-router";
 
-import { Eye, Handshake, RefreshCw, Search, Tag, Users, X, LoaderCircle } from "lucide-react";
-
+import { Eye, Handshake, RefreshCw, Search, Tag, Users, X, LoaderCircle, User } from "lucide-react";
 import { toast } from "react-toastify";
 
 import { getMembers, renewMember, updateMember } from "@/lib/member-api";
 
 import { getPartners, renewPartner, updatePartner } from "@/lib/partner-api";
+import { getMediaUrl } from "../../lib/config";
 
 import {
   buildMemberSlug,
@@ -60,6 +60,10 @@ function detailsRouteOf(tab) {
 
 function slugOf(tab, record) {
   return tab === "members" ? buildMemberSlug(record) : buildPartnerSlug(record);
+}
+
+function photoOf(record) {
+  return record?.photo ? getMediaUrl(record.photo) : "";
 }
 
 /* =========================================================
@@ -608,7 +612,7 @@ export function ResetDirectory() {
                         Days Remaining
                       </th>
 
-                      <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-right font-semibold text-slate-500">
+                      <th className="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-center font-semibold text-slate-500">
                         Actions
                       </th>
                     </tr>
@@ -650,15 +654,38 @@ export function ResetDirectory() {
                               params={{
                                 slug: slugOf(tab, record),
                               }}
-                              className="
-                                font-semibold
-                                text-slate-700
-                                transition-colors
-                                hover:text-red-700
-                                hover:underline
-                              "
+                              className="group flex items-center gap-2.5"
                             >
-                              {nameOf(tab, record) || "—"}
+                              {/* Profile Image / User Icon */}
+                              <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+                                {photoOf(record) ? (
+                                  <img
+                                    src={photoOf(record)}
+                                    alt={nameOf(tab, record) || "Profile"}
+                                    className="h-full w-full object-cover"
+                                    onError={(event) => {
+                                      event.currentTarget.style.display = "none";
+                                      event.currentTarget.nextElementSibling?.classList.remove(
+                                        "hidden",
+                                      );
+                                    }}
+                                  />
+                                ) : null}
+
+                                {/* Fallback User Icon */}
+                                <div
+                                  className={`h-full w-full items-center justify-center ${
+                                    photoOf(record) ? "hidden" : "flex"
+                                  }`}
+                                >
+                                  <User className="h-4 w-4 text-slate-400" />
+                                </div>
+                              </div>
+
+                              {/* Name */}
+                              <span className="min-w-0 truncate font-semibold text-slate-700 transition-colors group-hover:text-red-700 group-hover:underline">
+                                {nameOf(tab, record) || "—"}
+                              </span>
                             </Link>
                           </td>
 
@@ -705,7 +732,7 @@ export function ResetDirectory() {
                           {/* Actions */}
 
                           <td className="whitespace-nowrap px-3 py-3">
-                            <div className="flex justify-end gap-1">
+                            <div className="flex justify-center gap-1">
                               {/* View */}
 
                               <Link

@@ -427,7 +427,7 @@ export function BannerManagement() {
         <button
           type="button"
           onClick={() => openModal(BANNER_SECTIONS[0]?.key)}
-          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 active:scale-[0.98]"
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white shadow-sm transition-all hover:bg-red-700 active:scale-[0.98]"
         >
           <Plus className="h-4 w-4" />
           Upload Banner
@@ -470,7 +470,7 @@ export function BannerManagement() {
             <button
               type="button"
               onClick={() => openModal(BANNER_SECTIONS[0]?.key)}
-              className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
+              className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700"
             >
               <Plus className="h-4 w-4" />
               Upload first banner
@@ -539,7 +539,7 @@ export function BannerManagement() {
                           onClick={() => setViewingBanner(banner)}
                           title="View banner"
                           aria-label="View banner"
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                         >
                           <Eye className="h-4 w-4" />
                         </button>
@@ -599,7 +599,7 @@ export function BannerManagement() {
               id="banner-section"
               value={modalSection}
               onChange={handleSectionChange}
-              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition-colors hover:border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15"
+              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition-colors hover:border-slate-300 focus:border-red-500 focus:ring-2 focus:ring-red-500/15"
             >
               {BANNER_SECTIONS.map((item) => (
                 <option key={item.key} value={item.key}>
@@ -643,8 +643,8 @@ export function BannerManagement() {
                 onDrop={handleDrop}
                 className={`group relative flex h-52 w-full flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-all ${
                   dragActive
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-slate-300 bg-slate-50 hover:border-blue-400 hover:bg-blue-50/40"
+                    ? "border-red-500 bg-red-50"
+                    : "border-slate-300 bg-slate-50 hover:border-red-400 hover:bg-red-50/40"
                 }`}
               >
                 {preview || existing?.imageUrl ? (
@@ -662,11 +662,11 @@ export function BannerManagement() {
                 ) : (
                   <>
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm">
-                      <Upload className="h-5 w-5 text-blue-600" />
+                      <Upload className="h-5 w-5 text-red-600" />
                     </div>
 
                     <p className="mt-3 text-sm font-medium text-slate-600">
-                      <span className="font-semibold text-blue-600">Click to browse</span> or drag
+                      <span className="font-semibold text-red-600">Click to browse</span> or drag
                       and drop
                     </p>
 
@@ -739,7 +739,7 @@ export function BannerManagement() {
                 <button
                   type="submit"
                   disabled={!file || saving || removing}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving ? (
                     <LoaderCircle className="h-4 w-4 animate-spin" />

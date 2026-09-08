@@ -519,14 +519,14 @@ export function DirectoryManagement() {
           <div className="flex flex-wrap gap-2">
             <Link
               to="/admin/directory/create"
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-[3px] bg-blue-600 px-3 text-[13px] font-semibold text-white transition-colors hover:bg-blue-700"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-[3px] bg-red-600 px-3 text-[13px] font-semibold text-white transition-colors hover:bg-red-700"
             >
               <Plus className="h-4 w-4" /> Add Member
             </Link>
             {/* <button
               type="button"
               onClick={openAddPartner}
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-[3px] border border-blue-600 px-3 text-[13px] font-semibold text-blue-600 transition-colors hover:bg-blue-50"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-[3px] border border-red-600 px-3 text-[13px] font-semibold text-red-600 transition-colors hover:bg-red-50"
             >
               <Handshake className="h-4 w-4" /> Add Partner
             </button> */}
@@ -572,7 +572,7 @@ export function DirectoryManagement() {
                   }}
                   className={`h-8 rounded-full px-3 text-[13px] font-semibold transition-colors ${
                     statusFilter === filter.value
-                      ? "bg-blue-600 text-white"
+                      ? "bg-red-600 text-white"
                       : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
                 >
@@ -740,7 +740,7 @@ export function DirectoryManagement() {
                         <div className="grid grid-cols-3 gap-1">
                           <button
                             onClick={() => openAddPartnerForMember(member)}
-                            className="inline-flex items-center justify-center gap-1 rounded-[3px] px-1.5 py-1.5 text-[13px] font-semibold text-blue-600 transition-colors hover:bg-blue-50 active:scale-95"
+                            className="inline-flex items-center justify-center gap-1 rounded-[3px] px-1.5 py-1.5 text-[13px] font-semibold text-red-600 transition-colors hover:bg-red-50 active:scale-95"
                           >
                             <Handshake className="h-3.5 w-3.5" /> Add Partner
                           </button>
@@ -780,15 +780,15 @@ export function DirectoryManagement() {
                 <table className="w-full min-w-175 text-left text-[13px]">
                   <thead className="sticky top-0 z-10 bg-slate-50 text-slate-500 shadow-[0_1px_0_0] shadow-slate-200">
                     <tr>
-                      <th className="px-2.5 py-2">No</th>
+                      {/* <th className="px-2.5 py-2">No</th> */}
                       <th className="px-2.5 py-2">Member ID</th>
                       <th className="px-2.5 py-2">Name</th>
                       <th className="px-2.5 py-2">Company</th>
                       <th className="px-2.5 py-2">Mobile</th>
                       <th className="px-2.5 py-2">Status</th>
-                      <th className="px-2.5 py-2">Days Remaining</th>
+                      <th className="px-2.5 py-2">Remaining</th>
                       <th className="px-2.5 py-2">Partners</th>
-                      <th className="px-2.5 py-2 text-right">Actions</th>
+                      <th className="px-2.5 py-2 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -800,7 +800,7 @@ export function DirectoryManagement() {
                           key={member.id}
                           className="border-t border-slate-100 bg-white transition-colors hover:bg-sky-50/60"
                         >
-                          <td className="px-2.5 py-2 text-slate-500">{serialNo}</td>
+                          {/* <td className="px-2.5 py-2 text-slate-500">{serialNo}</td> */}
                           <td className="px-2.5 py-2 font-medium">{member.memberId}</td>
                           <td className="px-2.5 py-2">
                             <Link
@@ -839,10 +839,10 @@ export function DirectoryManagement() {
                             </Link>
                           </td>
                           <td className="px-2.5 py-2">
-                            <div className="flex justify-end gap-1">
+                            <div className="flex justify-center gap-1">
                               <button
                                 onClick={() => openAddPartnerForMember(member)}
-                                className="inline-flex items-center gap-1 rounded-[3px] px-1.5 py-1 font-semibold text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 active:scale-95"
+                                className="inline-flex items-center gap-1 rounded-[3px] px-1.5 py-1 font-semibold text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 active:scale-95"
                               >
                                 <Handshake className="h-3.5 w-3.5" /> Add Partner
                               </button>

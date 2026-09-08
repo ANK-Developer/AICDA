@@ -22,18 +22,57 @@ const STAT_CARD_HOVER_BORDERS = {
 export function StatCard({ icon: Icon, label, value, accent = "slate" }) {
   return (
     <div
-      className={`group rounded-[3px] border border-slate-300 bg-white p-3 shadow-sm transition-all sm:p-4 ${STAT_CARD_HOVER_BORDERS[accent]}`}
+      className={`
+        group
+        rounded-xl
+        border border-slate-200
+        bg-white
+        p-4
+        shadow-sm
+        transition-all
+        duration-200
+        hover:-translate-y-0.5
+        hover:shadow-md
+        ${STAT_CARD_HOVER_BORDERS[accent]}
+      `}
     >
-      <div className="flex items-center gap-2">
-        <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] transition-transform duration-200 group-hover:scale-110 ${STAT_CARD_ACCENTS[accent]}`}
-        >
-          <Icon className="h-4 w-4" />
-        </span>
-        <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          {label}
-        </p>
-        <p className="ml-auto text-2xl font-bold text-slate-800">{value}</p>
+      <div className="flex items-center justify-between gap-4">
+        {/* Left: Icon + Label */}
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className={`
+              flex h-11 w-11 shrink-0
+              items-center justify-center
+              rounded-xl
+              transition-transform
+              duration-200
+              group-hover:scale-105
+              ${STAT_CARD_ACCENTS[accent]}
+            `}
+          >
+            <Icon className="h-5 w-5" strokeWidth={2.2} />
+          </span>
+
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              {label}
+            </p>
+
+            <p className="mt-1 text-2xl font-bold leading-none tracking-tight text-slate-800">
+              {value ?? 0}
+            </p>
+          </div>
+        </div>
+
+        {/* Small decorative indicator */}
+        <div
+          className={`
+            hidden h-2 w-2 shrink-0
+            rounded-full
+            sm:block
+            ${STAT_CARD_ACCENTS[accent]}
+          `}
+        />
       </div>
     </div>
   );
@@ -41,7 +80,7 @@ export function StatCard({ icon: Icon, label, value, accent = "slate" }) {
 
 export function MemberStatsCards({ stats }) {
   return (
-    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 sm:gap-3">
       <StatCard icon={Users} label="Total Member" value={stats.total} accent="sky" />
       <StatCard icon={UserCheck} label="Active Member" value={stats.active} accent="emerald" />
       <StatCard icon={UserX} label="Inactive Member" value={stats.inactive} accent="slate" />

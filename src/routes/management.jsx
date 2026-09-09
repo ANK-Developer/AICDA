@@ -44,7 +44,7 @@ function mapMemberToBearer(member) {
     pNo: member.packetNo || "",
     residence: member.residentialAddress || "",
     residentTel: member.residentialTelephone || "",
-    dateOfJoining: member.dateOfJoining || "",
+    dateOfJoining: formatDate(member.dateOfJoining) || "",
     mobile: member.mobile || "",
     memberId: member.memberId || "",
     validityFrom: member.validityFrom || "",
@@ -67,11 +67,11 @@ function mapPartnerToBearer(partner) {
     pNo: partner.packetNo || "",
     residence: partner.residentialAddress || "",
     residentTel: partner.residentialTelephone || "",
-    dateOfJoining: partner.dateOfJoining || "",
     mobile: partner.mobile || "",
     memberId: partner.partnerId || "",
-    validityFrom: partner.validityFrom || "",
-    validityTo: partner.validityTo || "",
+    dateOfJoining: formatDate(partner.dateOfJoining),
+    validityFrom: formatDate(partner.validityFrom),
+    validityTo: formatDate(partner.validityTo),
     photo: isDisplayableUrl(partner.photo) ? partner.photo : null,
   };
 }
@@ -366,6 +366,21 @@ function isValidityActive(validityTo) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return expiry >= today;
+}
+
+function formatDate(value) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
+  });
 }
 
 function SearchSuggestions({ suggestions, onSelect }) {

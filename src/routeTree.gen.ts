@@ -52,6 +52,8 @@ import { Route as AdminDirectoryRouteImport } from './routes/admin.directory'
 import { Route as AdminComplaintRouteImport } from './routes/admin.complaint'
 import { Route as AdminBannersRouteImport } from './routes/admin.banners'
 import { Route as AdminDirectoryIndexRouteImport } from './routes/admin.directory.index'
+import { Route as ProfilePartnerIdRouteImport } from './routes/profile.partner.$id'
+import { Route as ProfileMemberIdRouteImport } from './routes/profile.member.$id'
 import { Route as AdminDirectoryPartenerRouteImport } from './routes/admin.directory.partener'
 import { Route as AdminDirectoryCreateRouteImport } from './routes/admin.directory.create'
 import { Route as AdminDirectorySlugDetailsRouteImport } from './routes/admin.directory.$slug.details'
@@ -279,6 +281,16 @@ const AdminDirectoryIndexRoute = AdminDirectoryIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminDirectoryRoute,
 } as any)
+const ProfilePartnerIdRoute = ProfilePartnerIdRouteImport.update({
+  id: '/profile/partner/$id',
+  path: '/profile/partner/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileMemberIdRoute = ProfileMemberIdRouteImport.update({
+  id: '/profile/member/$id',
+  path: '/profile/member/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminDirectoryPartenerRoute = AdminDirectoryPartenerRouteImport.update({
   id: '/partener',
   path: '/partener',
@@ -347,6 +359,8 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/admin/directory/create': typeof AdminDirectoryCreateRoute
   '/admin/directory/partener': typeof AdminDirectoryPartenerRoute
+  '/profile/member/$id': typeof ProfileMemberIdRoute
+  '/profile/partner/$id': typeof ProfilePartnerIdRoute
   '/admin/directory/': typeof AdminDirectoryIndexRoute
   '/admin/directory/$slug/details': typeof AdminDirectorySlugDetailsRoute
   '/admin/directory/partner/$slug/details': typeof AdminDirectoryPartnerSlugDetailsRoute
@@ -394,6 +408,8 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/admin/directory/create': typeof AdminDirectoryCreateRoute
   '/admin/directory/partener': typeof AdminDirectoryPartenerRoute
+  '/profile/member/$id': typeof ProfileMemberIdRoute
+  '/profile/partner/$id': typeof ProfilePartnerIdRoute
   '/admin/directory': typeof AdminDirectoryIndexRoute
   '/admin/directory/$slug/details': typeof AdminDirectorySlugDetailsRoute
   '/admin/directory/partner/$slug/details': typeof AdminDirectoryPartnerSlugDetailsRoute
@@ -444,6 +460,8 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/admin/directory/create': typeof AdminDirectoryCreateRoute
   '/admin/directory/partener': typeof AdminDirectoryPartenerRoute
+  '/profile/member/$id': typeof ProfileMemberIdRoute
+  '/profile/partner/$id': typeof ProfilePartnerIdRoute
   '/admin/directory/': typeof AdminDirectoryIndexRoute
   '/admin/directory/$slug/details': typeof AdminDirectorySlugDetailsRoute
   '/admin/directory/partner/$slug/details': typeof AdminDirectoryPartnerSlugDetailsRoute
@@ -495,6 +513,8 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/admin/directory/create'
     | '/admin/directory/partener'
+    | '/profile/member/$id'
+    | '/profile/partner/$id'
     | '/admin/directory/'
     | '/admin/directory/$slug/details'
     | '/admin/directory/partner/$slug/details'
@@ -542,6 +562,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin/directory/create'
     | '/admin/directory/partener'
+    | '/profile/member/$id'
+    | '/profile/partner/$id'
     | '/admin/directory'
     | '/admin/directory/$slug/details'
     | '/admin/directory/partner/$slug/details'
@@ -591,6 +613,8 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/admin/directory/create'
     | '/admin/directory/partener'
+    | '/profile/member/$id'
+    | '/profile/partner/$id'
     | '/admin/directory/'
     | '/admin/directory/$slug/details'
     | '/admin/directory/partner/$slug/details'
@@ -626,6 +650,8 @@ export interface RootRouteChildren {
   CategoriesTransferOwnershipRoute: typeof CategoriesTransferOwnershipRoute
   CategoriesUsedVehicleChecklistRoute: typeof CategoriesUsedVehicleChecklistRoute
   CategoriesVehicleSafetyRoute: typeof CategoriesVehicleSafetyRoute
+  ProfileMemberIdRoute: typeof ProfileMemberIdRoute
+  ProfilePartnerIdRoute: typeof ProfilePartnerIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -931,6 +957,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDirectoryIndexRouteImport
       parentRoute: typeof AdminDirectoryRoute
     }
+    '/profile/partner/$id': {
+      id: '/profile/partner/$id'
+      path: '/profile/partner/$id'
+      fullPath: '/profile/partner/$id'
+      preLoaderRoute: typeof ProfilePartnerIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile/member/$id': {
+      id: '/profile/member/$id'
+      path: '/profile/member/$id'
+      fullPath: '/profile/member/$id'
+      preLoaderRoute: typeof ProfileMemberIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/directory/partener': {
       id: '/admin/directory/partener'
       path: '/partener'
@@ -1046,6 +1086,8 @@ const rootRouteChildren: RootRouteChildren = {
   CategoriesTransferOwnershipRoute: CategoriesTransferOwnershipRoute,
   CategoriesUsedVehicleChecklistRoute: CategoriesUsedVehicleChecklistRoute,
   CategoriesVehicleSafetyRoute: CategoriesVehicleSafetyRoute,
+  ProfileMemberIdRoute: ProfileMemberIdRoute,
+  ProfilePartnerIdRoute: ProfilePartnerIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

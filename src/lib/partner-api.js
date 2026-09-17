@@ -54,11 +54,15 @@ export async function getPartnerDetails(id) {
   return unwrapData(await api(`/partners/${id}`));
 }
 
-// No public partners endpoint exists on the backend yet — callers already
-// handle this failing gracefully (see management.jsx's `.catch(() => [])`).
 export async function getPublicPartners() {
   const result = unwrapData(await api("/partners/public"));
   return Array.isArray(result) ? result : result?.partners || result?.items || [];
+}
+
+// Single-record public lookup — no auth required. Backs the shareable
+// "public profile" link generated from the admin partner table.
+export async function getPublicPartner(id) {
+  return unwrapData(await api(`/partners/public/${id}`));
 }
 
 export async function createPartner(partner) {

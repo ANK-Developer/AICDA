@@ -7,6 +7,7 @@ import {
   Download,
   FileDown,
   Image as ImageIcon,
+  Link2,
   LoaderCircle,
   Mail,
   MapPin,
@@ -23,6 +24,8 @@ import { getPartnerDetails, renewPartner } from "@/lib/partner-api";
 
 import {
   buildMemberSlug,
+  buildPublicPartnerUrl,
+  copyTextToClipboard,
   daysRemaining,
   expiryLabel,
   inputClass,
@@ -383,6 +386,16 @@ export function PartnerDetails({ slug }) {
     }
   };
 
+  const copyLink = async () => {
+    if (!partner) return;
+    try {
+      await copyTextToClipboard(buildPublicPartnerUrl(partner));
+      toast.success("Public profile link copied — paste it in any browser to view.");
+    } catch {
+      toast.error("Could not copy the link.");
+    }
+  };
+
   /* ------------------------------------------------------------------------ */
   /* Renewal modal                                                             */
   /* ------------------------------------------------------------------------ */
@@ -519,6 +532,15 @@ export function PartnerDetails({ slug }) {
               )}
 
               {downloadingForm ? "Generating..." : "Download Form"}
+            </button>
+
+            <button
+              type="button"
+              onClick={copyLink}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition-all hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
+            >
+              <Link2 className="h-4 w-4" />
+              Copy Public Link
             </button>
           </div>
         )}

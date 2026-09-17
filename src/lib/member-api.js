@@ -72,6 +72,12 @@ export async function getPublicMembers() {
   return Array.isArray(result) ? result : result?.members || result?.items || [];
 }
 
+// Single-record public lookup — no auth required. Backs the shareable
+// "public profile" link generated from the admin directory table.
+export async function getPublicMember(id) {
+  return unwrapData(await api(`/members/public/${id}`));
+}
+
 export async function createMember(member) {
   return unwrapData(
     await api("/members", {

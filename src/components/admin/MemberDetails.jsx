@@ -8,6 +8,7 @@ import {
   Eye,
   FileDown,
   Image as ImageIcon,
+  Link2,
   LoaderCircle,
   Pencil,
   Plus,
@@ -29,6 +30,8 @@ import { getMemberDetails, renewMember } from "@/lib/member-api";
 
 import {
   buildPartnerSlug,
+  buildPublicMemberUrl,
+  copyTextToClipboard,
   daysRemaining,
   expiryLabel,
   inputClass,
@@ -360,6 +363,18 @@ export function MemberDetails({ slug }) {
     }
   };
 
+  const copyLink = async () => {
+    if (!member) return;
+
+    try {
+      await copyTextToClipboard(buildPublicMemberUrl(member));
+
+      toast.success("Public profile link copied — paste it in any browser to view.");
+    } catch {
+      toast.error("Could not copy the link.");
+    }
+  };
+
   /* ------------------------------------------------------------------------ */
   /* Renewal                                                                  */
   /* ------------------------------------------------------------------------ */
@@ -486,6 +501,15 @@ export function MemberDetails({ slug }) {
               )}
 
               {downloadingForm ? "Generating..." : "Download Form"}
+            </button>
+
+            <button
+              type="button"
+              onClick={copyLink}
+              className="inline-flex h-9 items-center gap-1.5 rounded-[4px] border border-slate-300 bg-white px-3 text-[13px] font-semibold text-slate-600 transition-all hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              Copy Public Link
             </button>
           </div>
         )}

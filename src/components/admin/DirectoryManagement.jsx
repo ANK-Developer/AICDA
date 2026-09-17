@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Eye,
   Handshake,
+  Link2,
   Pencil,
   Plus,
   RefreshCw,
@@ -24,6 +25,8 @@ import { getPartners } from "@/lib/partner-api";
 import {
   buildMemberSlug,
   buildPartnerSlug,
+  buildPublicMemberUrl,
+  copyTextToClipboard,
   daysRemaining,
   expiryLabel,
   inputClass,
@@ -413,6 +416,16 @@ export function DirectoryManagement() {
     }
   };
 
+  const copyMemberLink = async (member) => {
+    const url = buildPublicMemberUrl(member);
+    try {
+      await copyTextToClipboard(url);
+      toast.success("Public profile link copied — paste it in any browser to view.");
+    } catch {
+      toast.error("Could not copy the link.");
+    }
+  };
+
   const openAddPartner = async () => {
     setShowAddPartner(true);
     setLoadingPartnerPicker(true);
@@ -764,6 +777,12 @@ export function DirectoryManagement() {
                             <Pencil className="h-3.5 w-3.5" /> Edit
                           </button>
                           <button
+                            onClick={() => copyMemberLink(member)}
+                            className="inline-flex items-center justify-center gap-1 rounded-[3px] px-1.5 py-1.5 text-[13px] font-semibold text-sky-700 transition-colors hover:bg-sky-50 active:scale-95"
+                          >
+                            <Link2 className="h-3.5 w-3.5" /> Copy Link
+                          </button>
+                          <button
                             onClick={() => deleteMember(member)}
                             className="inline-flex items-center justify-center gap-1 rounded-[3px] px-1.5 py-1.5 text-[13px] font-semibold text-red-600 transition-colors hover:bg-red-50 active:scale-95"
                           >
@@ -864,6 +883,13 @@ export function DirectoryManagement() {
                                 className="inline-flex items-center gap-1 rounded-[3px] px-1.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-sky-50 hover:text-sky-700 active:scale-95"
                               >
                                 <Pencil className="h-3.5 w-3.5" /> Edit
+                              </button>
+                              <button
+                                onClick={() => copyMemberLink(member)}
+                                title="Copy public profile link"
+                                className="inline-flex items-center gap-1 rounded-[3px] px-1.5 py-1 font-semibold text-sky-700 transition-colors hover:bg-sky-50 active:scale-95"
+                              >
+                                <Link2 className="h-3.5 w-3.5" /> Copy Link
                               </button>
                               {/* <button
                                 onClick={() => deleteMember(member)}

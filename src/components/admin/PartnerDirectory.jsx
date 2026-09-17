@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Eye, Pencil, RefreshCw, Search, Trash2, Users } from "lucide-react";
+import { ArrowLeft, Eye, Link2, Pencil, RefreshCw, Search, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMembers } from "@/lib/member-api";
@@ -12,6 +12,8 @@ import {
 } from "@/lib/partner-api";
 import {
   buildPartnerSlug,
+  buildPublicPartnerUrl,
+  copyTextToClipboard,
   daysRemaining,
   expiryLabel,
   inputClass,
@@ -169,6 +171,16 @@ export function PartnerDirectory() {
     } catch (requestError) {
       setListError(requestError.message || "Could not update partner status.");
       toast.error(requestError.message || "Could not update partner status.");
+    }
+  };
+
+  const copyPartnerLink = async (partner) => {
+    const url = buildPublicPartnerUrl(partner);
+    try {
+      await copyTextToClipboard(url);
+      toast.success("Public profile link copied — paste it in any browser to view.");
+    } catch {
+      toast.error("Could not copy the link.");
     }
   };
 
@@ -401,6 +413,12 @@ export function PartnerDirectory() {
                           <Pencil className="h-3.5 w-3.5" /> Edit
                         </button>
                         <button
+                          onClick={() => copyPartnerLink(partner)}
+                          className="inline-flex items-center gap-1 text-[13px] font-semibold text-sky-700"
+                        >
+                          <Link2 className="h-3.5 w-3.5" /> Copy Link
+                        </button>
+                        <button
                           onClick={() => deletePartner(partner)}
                           className="inline-flex items-center gap-1 text-[13px] font-semibold text-red-600"
                         >
@@ -478,6 +496,13 @@ export function PartnerDirectory() {
                                 className="inline-flex items-center gap-1 font-semibold text-slate-600 hover:text-sky-700"
                               >
                                 <Pencil className="h-3.5 w-3.5" /> Edit
+                              </button>
+                              <button
+                                onClick={() => copyPartnerLink(partner)}
+                                title="Copy public profile link"
+                                className="inline-flex items-center gap-1 font-semibold text-sky-700"
+                              >
+                                <Link2 className="h-3.5 w-3.5" /> Copy Link
                               </button>
                               {/* <button
                                 onClick={() => deletePartner(partner)}

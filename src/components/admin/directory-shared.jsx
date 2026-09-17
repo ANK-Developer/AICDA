@@ -677,3 +677,42 @@ export function parsePartnerSlug(slug) {
   const match = /-(\d+)$/.exec(slug || "");
   return match ? match[1] : slug;
 }
+
+// Shareable public-profile links — no auth required to view, backed by the
+// GET /members/public/:id and GET /partners/public/:id endpoints. Uses the
+// current origin so it works the same in dev, staging, and production.
+// Routed under /profile/* rather than /public/* — the latter collides with
+// Vite's convention of serving the project's public/ assets folder at "/".
+export function buildPublicMemberUrl(member) {
+  if (typeof window === "undefined" || !member?.id) return "";
+  return `${window.location.origin}/profile/member/${member.id}`;
+}
+
+export function buildPublicPartnerUrl(partner) {
+  if (typeof window === "undefined" || !partner?.id) return "";
+  return `${window.location.origin}/profile/partner/${partner.id}`;
+}
+
+// navigator.clipboard requires a secure context (HTTPS or localhost) — falls
+// back to the old execCommand trick so "Copy Link" still works over plain
+// HTTP on a LAN, where admins commonly access this dashboard.
+export async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // fall through to the manual fallback below
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}

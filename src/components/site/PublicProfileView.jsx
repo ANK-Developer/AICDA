@@ -65,37 +65,60 @@ function InfoRow({ label, value, icon: Icon }) {
   );
 }
 
-/*
- * Verification Status
- *
- * ACTIVE:
- * Green thumbs-up + "Verified by AICDA"
- *
- * INACTIVE / EXPIRED:
- * Only red thumbs-down
- */
-function StatusPill({ active }) {
+/* =========================================================
+   MAIN PROFILE VERIFICATION
+   Large icon + Verified by AICDA
+   ========================================================= */
+function ProfileVerification({ active }) {
   if (!active) {
     return (
       <span
-        className="inline-flex shrink-0 items-center justify-center rounded-full bg-red-100 p-2 text-red-600"
+        className="inline-flex shrink-0 items-center justify-center rounded-full bg-red-100 p-2.5 text-red-600"
         title="Not verified"
         aria-label="Not verified"
       >
-        <ThumbsDown className="h-6 w-6 fill-current" />
+        <ThumbsDown className="h-7 w-7 fill-current" />
       </span>
     );
   }
 
   return (
     <span
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700"
+      className="inline-flex shrink-0 items-center gap-2 rounded-full bg-emerald-100 px-3 py-2 text-xs font-bold text-emerald-700"
       title="Verified by AICDA"
       aria-label="Verified by AICDA"
     >
-      <ThumbsUp className="h-6 w-6 fill-current" />
+      <ThumbsUp className="h-8 w-8 fill-current" />
 
       {/* <span>Verified by AICDA</span> */}
+    </span>
+  );
+}
+
+/* =========================================================
+   SMALL PARTNER VERIFICATION
+   Only icon so partner name remains clearly visible
+   ========================================================= */
+function PartnerVerification({ active }) {
+  if (!active) {
+    return (
+      <span
+        className="inline-flex shrink-0 items-center justify-center rounded-full bg-red-100 p-1.5 text-red-600"
+        title="Not verified"
+        aria-label="Not verified"
+      >
+        <ThumbsDown className="h-4 w-4 fill-current" />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="inline-flex shrink-0 items-center justify-center rounded-full bg-emerald-100 p-1.5 text-emerald-700"
+      title="Verified by AICDA"
+      aria-label="Verified by AICDA"
+    >
+      <ThumbsUp className="h-4 w-4 fill-current" />
     </span>
   );
 }
@@ -109,8 +132,6 @@ function ProfileSkeleton() {
         <Skeleton className="mx-auto mt-4 h-5 w-36" />
 
         <Skeleton className="mx-auto mt-2 h-3.5 w-24" />
-
-        <Skeleton className="mx-auto mt-4 h-6 w-20 rounded-full" />
       </div>
 
       <div className="space-y-6">
@@ -247,9 +268,9 @@ export function PublicProfileView({ type, id }) {
 
   const name = isPartner ? record?.partnerName : record?.memberName;
 
-  // Active means:
-  // 1. isActive must be true
-  // 2. validity date must not be expired
+  // Active only when:
+  // 1. isActive === true
+  // 2. validity date has not expired
   const active = record ? Boolean(record.isActive && !isExpired(record)) : false;
 
   const validityHint = record ? expiryLabel(daysRemaining(record)) : null;
@@ -264,6 +285,9 @@ export function PublicProfileView({ type, id }) {
     <div className="flex min-h-screen flex-col bg-background">
       <SiteHeader />
 
+      {/* =========================================================
+          PAGE HEADER
+          ========================================================= */}
       <div className="border-b border-border bg-primary/5">
         <div className="mx-auto flex max-w-5xl flex-col gap-1 px-4 py-6 sm:px-6 lg:px-8">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
@@ -309,14 +333,32 @@ export function PublicProfileView({ type, id }) {
                   {name || "Unnamed"}
                 </h2>
 
-                <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <span>{idLabel}:</span>
+                {/* =====================================================
+                    ID + VERIFICATION
+                    Example:
+                    Member ID: 987   👍
+                    Partner ID: P123 👍
+                    ===================================================== */}
+                <div className="mt-1 flex max-w-full items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <span className="shrink-0">{idLabel}:</span>
 
-                  <span className="font-semibold text-foreground">{displayId || "—"}</span>
+                  <span className="truncate font-semibold text-foreground">{displayId || "—"}</span>
+
+                  {active ? (
+                    <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600">
+                      Inactive
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {/* Valid Until */}
+              {/* =========================================================
+                  VALID UNTIL
+                  ========================================================= */}
               <div className="mt-5 border-t border-border pt-4">
                 <div className="flex items-center gap-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -341,7 +383,9 @@ export function PublicProfileView({ type, id }) {
                 )}
               </div>
 
-              {/* Registered Under Member */}
+              {/* =========================================================
+                  REGISTERED UNDER MEMBER
+                  ========================================================= */}
               {isPartner && parentMember && (
                 <div className="mt-5 border-t border-border pt-4">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -364,7 +408,9 @@ export function PublicProfileView({ type, id }) {
                 </div>
               )}
 
-              {/* Copy / Share */}
+              {/* =========================================================
+                  COPY / SHARE
+                  ========================================================= */}
               <div className="mt-5 flex gap-2 border-t border-border pt-4">
                 <button
                   type="button"
@@ -392,11 +438,10 @@ export function PublicProfileView({ type, id }) {
             <div className="min-w-0 space-y-6">
               {/* =======================================================
                   MEMBER / PARTNER INFORMATION
-                  Verification at TOP RIGHT
                   ======================================================= */}
               <div className="rounded-2xl border border-border bg-card p-5 shadow-(--shadow-card) sm:p-6">
                 <div className="mb-4 flex items-start justify-between gap-4">
-                  {/* Left side */}
+                  {/* LEFT SIDE */}
                   <div className="flex min-w-0 items-center gap-2">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <UserRound className="h-4 w-4" />
@@ -414,9 +459,9 @@ export function PublicProfileView({ type, id }) {
                   </div>
 
                   {/* =================================================
-                      RIGHT SIDE VERIFICATION
-                     ================================================= */}
-                  <StatusPill active={active} />
+                      LARGE VERIFICATION - TOP RIGHT
+                      ================================================= */}
+                  <ProfileVerification active={active} />
                 </div>
 
                 <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
@@ -518,12 +563,13 @@ export function PublicProfileView({ type, id }) {
                             params={{
                               id: String(partner.id),
                             }}
-                            className="flex items-center gap-3 rounded-xl border border-border p-3 transition-colors hover:bg-muted/60"
+                            className="flex min-w-0 items-center gap-3 rounded-xl border border-border p-3 transition-colors hover:bg-muted/60"
                           >
+                            {/* Partner Photo */}
                             {partner.photo ? (
                               <img
                                 src={getMediaUrl(partner.photo)}
-                                alt={partner.partnerName}
+                                alt={partner.partnerName || "Partner"}
                                 className="h-11 w-11 shrink-0 rounded-lg object-cover"
                               />
                             ) : (
@@ -532,6 +578,7 @@ export function PublicProfileView({ type, id }) {
                               </div>
                             )}
 
+                            {/* Partner Details */}
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-semibold text-foreground">
                                 {partner.partnerName || "Unnamed Partner"}
@@ -542,8 +589,11 @@ export function PublicProfileView({ type, id }) {
                               </p>
                             </div>
 
-                            {/* Partner verification */}
-                            <StatusPill active={partnerActive} />
+                            {/* =================================================
+                                SMALL PARTNER VERIFICATION ICON
+                                Keeps name/ID clearly visible
+                                ================================================= */}
+                            <PartnerVerification active={partnerActive} />
                           </Link>
                         );
                       })}

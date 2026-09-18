@@ -1,6 +1,7 @@
 import { User } from "lucide-react";
 import logoAICDA from "@/assets/logoAICDA.png";
 import presidentSignature from "@/assets/aicda-president-signature.png";
+import { getMediaUrl } from "@/lib/config";
 import { isExpired } from "./directory-shared";
 
 function formatDate(value) {
@@ -51,7 +52,7 @@ export function PartnerPrintableForm({ partner, formRef }) {
         <div className="shrink-0">
           {partner.photo ? (
             <img
-              src={partner.photo}
+              src={getMediaUrl(partner.photo)}
               alt={partner.partnerName}
               crossOrigin="anonymous"
               className="h-32 w-28 rounded-md border border-slate-300 object-cover"

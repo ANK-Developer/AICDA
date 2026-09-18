@@ -16,7 +16,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { toPng } from "html-to-image";
+import { toJpeg } from "html-to-image";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMediaUrl } from "@/lib/config";
@@ -92,73 +92,16 @@ function getId(item) {
   return item?.id || item?._id || "";
 }
 
-function toCsvCell(value) {
-  const text = value == null ? "" : String(value);
-
-  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-function downloadRenewalsCsv(partner) {
-  if (!partner?.renewals?.length) {
-    toast.error("No payment history available.");
-    return;
-  }
-
-  try {
-    const currentRenewalId = getId(partner.renewals[0]);
-
-    const rows = [
-      ["Payment Date", "Amount (₹)", "Validity From", "Validity To", "Note", "Current"],
-
-      ...partner.renewals.map((renewal) => [
-        formatDate(renewal.paymentDate) || "",
-        renewal.amount ?? "",
-        formatDate(renewal.validityFrom) || "",
-        formatDate(renewal.validityTo) || "",
-        renewal.note || "",
-        getId(renewal) === currentRenewalId ? "Yes" : "No",
-      ]),
-    ];
-
-    const csv = rows.map((row) => row.map(toCsvCell).join(",")).join("\r\n");
-
-    const blob = new Blob(["\uFEFF" + csv], {
-      type: "text/csv;charset=utf-8;",
-    });
-
-    const url = URL.createObjectURL(blob);
-
-    const fileName = `${safeText(partner.partnerName) || "partner"}_payment_history.csv`
-      .replace(/\s+/g, "_")
-      .replace(/[^\w.-]/g, "");
-
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = fileName;
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    URL.revokeObjectURL(url);
-
-    toast.success("Payment report downloaded.");
-  } catch (error) {
-    console.error("CSV download error:", error);
-    toast.error("Could not download payment report.");
-  }
-}
-
 async function downloadPartnerFormImage(node, fileName) {
   if (!node) {
     throw new Error("Printable form is not available.");
   }
 
-  const dataUrl = await toPng(node, {
+  const dataUrl = await toJpeg(node, {
     pixelRatio: 2,
     backgroundColor: "#ffffff",
     cacheBust: true,
+    quality: 0.95,
   });
 
   const link = document.createElement("a");
@@ -375,7 +318,7 @@ export function PartnerDetails({ slug }) {
         .replace(/\s+/g, "_")
         .replace(/[^\w.-]/g, "");
 
-      await downloadPartnerFormImage(printableFormRef.current, `${baseName}_partner_form.png`);
+      await downloadPartnerFormImage(printableFormRef.current, `${baseName}_partner_form.jpg`);
 
       toast.success("Partner form downloaded.");
     } catch (downloadError) {
@@ -697,12 +640,19 @@ export function PartnerDetails({ slug }) {
                     partner.renewals?.length > 0 ? (
                       <button
                         type="button"
-                        onClick={() => downloadRenewalsCsv(partner)}
-                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                        onClick={handleDownloadForm}
+                        disabled={downloadingForm}
+                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <Download className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Download Report</span>
-                        <span className="sm:hidden">CSV</span>
+                        {downloadingForm ? (
+                          <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Download className="h-3.5 w-3.5" />
+                        )}
+                        <span className="hidden sm:inline">
+                          {downloadingForm ? "Generating..." : "Download Report"}
+                        </span>
+                        <span className="sm:hidden">{downloadingForm ? "..." : "PDF"}</span>
                       </button>
                     ) : null
                   }

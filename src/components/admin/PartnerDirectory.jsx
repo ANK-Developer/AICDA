@@ -2,6 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Eye, Link2, Pencil, RefreshCw, Search, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMembers } from "@/lib/member-api";
 import {
@@ -74,6 +84,9 @@ export function PartnerDirectory() {
   const [renewAmount, setRenewAmount] = useState("");
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState("");
+
+  const [statusConfirmTarget, setStatusConfirmTarget] = useState(null);
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
   const loadAll = async () => {
     setLoading(true);
@@ -160,17 +173,29 @@ export function PartnerDirectory() {
     }
   };
 
-  const toggleStatus = async (partner) => {
+  const toggleStatus = (partner) => {
     if (isExpired(partner)) {
       toast(`${partner.partnerName || "This partner"} is expired — use Renew to make them active.`);
       return;
     }
+    setStatusConfirmTarget(partner);
+  };
+
+  const confirmToggleStatus = async () => {
+    if (!statusConfirmTarget) return;
+
+    setStatusUpdating(true);
+
     try {
-      await togglePartnerStatus(partner.id);
+      await togglePartnerStatus(statusConfirmTarget.id);
       await loadAll();
+      setStatusConfirmTarget(null);
     } catch (requestError) {
-      setListError(requestError.message || "Could not update partner status.");
-      toast.error(requestError.message || "Could not update partner status.");
+      const message = requestError.message || "Could not update partner status.";
+      setListError(message);
+      toast.error(message);
+    } finally {
+      setStatusUpdating(false);
     }
   };
 
@@ -614,6 +639,38 @@ export function PartnerDirectory() {
           </form>
         </div>
       )}
+
+      <AlertDialog
+        open={statusConfirmTarget != null}
+        onOpenChange={(open) => {
+          if (!open && !statusUpdating) setStatusConfirmTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {statusConfirmTarget?.isActive ? "Deactivate partner?" : "Activate partner?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {statusConfirmTarget?.isActive
+                ? `${statusConfirmTarget?.partnerName || "This partner"} will be marked Inactive and hidden from the public directory.`
+                : `${statusConfirmTarget?.partnerName || "This partner"} will be marked Active and shown in the public directory.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={statusUpdating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                confirmToggleStatus();
+              }}
+              disabled={statusUpdating}
+            >
+              {statusUpdating ? "Updating…" : "Confirm"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

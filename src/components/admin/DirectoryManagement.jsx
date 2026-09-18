@@ -14,6 +14,16 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   deleteMember as deleteMemberRequest,
@@ -178,6 +188,9 @@ export function DirectoryManagement() {
   const [renewAmount, setRenewAmount] = useState("");
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState("");
+
+  const [statusConfirmTarget, setStatusConfirmTarget] = useState(null);
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
   const [showAddPartner, setShowAddPartner] = useState(false);
   const [partnerPickerMembers, setPartnerPickerMembers] = useState([]);
@@ -403,16 +416,29 @@ export function DirectoryManagement() {
     });
   };
 
-  const toggleStatus = async (member) => {
+  const toggleStatus = (member) => {
     if (isExpired(member)) {
       toast(`${member.memberName || "This member"} is expired — use Renew to make them active.`);
       return;
     }
+    setStatusConfirmTarget(member);
+  };
+
+  const confirmToggleStatus = async () => {
+    if (!statusConfirmTarget) return;
+
+    setStatusUpdating(true);
+
     try {
-      await toggleMemberStatus(member.id);
+      await toggleMemberStatus(statusConfirmTarget.id);
       await loadMembers();
+      setStatusConfirmTarget(null);
     } catch (requestError) {
-      setListError(requestError.message || "Could not update member status.");
+      const message = requestError.message || "Could not update member status.";
+      setListError(message);
+      toast.error(message);
+    } finally {
+      setStatusUpdating(false);
     }
   };
 
@@ -1052,6 +1078,38 @@ export function DirectoryManagement() {
           </form>
         </div>
       )}
+
+      <AlertDialog
+        open={statusConfirmTarget != null}
+        onOpenChange={(open) => {
+          if (!open && !statusUpdating) setStatusConfirmTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {statusConfirmTarget?.isActive ? "Deactivate member?" : "Activate member?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {statusConfirmTarget?.isActive
+                ? `${statusConfirmTarget?.memberName || "This member"} will be marked Inactive and hidden from the public directory.`
+                : `${statusConfirmTarget?.memberName || "This member"} will be marked Active and shown in the public directory.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={statusUpdating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                confirmToggleStatus();
+              }}
+              disabled={statusUpdating}
+            >
+              {statusUpdating ? "Updating…" : "Confirm"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

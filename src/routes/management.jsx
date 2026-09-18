@@ -72,7 +72,7 @@ function mapPartnerToBearer(partner) {
     dateOfJoining: formatDate(partner.dateOfJoining),
     validityFrom: formatDate(partner.validityFrom),
     validityTo: formatDate(partner.validityTo),
-    photo: isDisplayableUrl(partner.photo) ? partner.photo : null,
+    photo: partner.photo ? getMediaUrl(partner.photo) : null,
   };
 }
 
@@ -353,10 +353,6 @@ function OfficeBearersList({ bearers }) {
       ))}
     </div>
   );
-}
-
-function isDisplayableUrl(value) {
-  return typeof value === "string" && /^(https?:)?\/\//.test(value);
 }
 
 function isValidityActive(validityTo) {

@@ -21,7 +21,7 @@ import {
   Building2,
   UserRound,
 } from "lucide-react";
-import { toPng } from "html-to-image";
+import { toJpeg } from "html-to-image";
 import { toast } from "sonner";
 import { getMediaUrl } from "@/lib/config";
 
@@ -82,12 +82,6 @@ function formatDate(value) {
   });
 }
 
-function toCsvCell(value) {
-  const text = value == null ? "" : String(value);
-
-  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
 function sanitizeFileName(value, fallback) {
   const name = String(value || fallback)
     .trim()
@@ -97,57 +91,16 @@ function sanitizeFileName(value, fallback) {
   return name || fallback;
 }
 
-function downloadRenewalsCsv(member) {
-  const renewals = Array.isArray(member?.renewals) ? member.renewals : [];
-
-  if (!renewals.length) {
-    toast.info("No payment history available.");
-    return;
-  }
-
-  const currentRenewalId = renewals[0]?.id;
-
-  const rows = [
-    ["Payment Date", "Amount (₹)", "Validity From", "Validity To", "Note", "Current"],
-    ...renewals.map((renewal) => [
-      formatDate(renewal.paymentDate) || "",
-      renewal.amount ?? "",
-      formatDate(renewal.validityFrom) || "",
-      formatDate(renewal.validityTo) || "",
-      renewal.note || "",
-      renewal.id === currentRenewalId ? "Yes" : "No",
-    ]),
-  ];
-
-  const csv = rows.map((row) => row.map(toCsvCell).join(",")).join("\r\n");
-
-  // UTF-8 BOM helps Excel correctly detect UTF-8 CSV files.
-  const blob = new Blob(["\uFEFF" + csv], {
-    type: "text/csv;charset=utf-8;",
-  });
-
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-
-  link.href = url;
-  link.download = `${sanitizeFileName(member.memberName, "member")}_payment_history.csv`;
-
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-
-  URL.revokeObjectURL(url);
-}
-
 async function downloadMemberFormImage(node, fileName) {
   if (!node) {
     throw new Error("Printable form is not available.");
   }
 
-  const dataUrl = await toPng(node, {
+  const dataUrl = await toJpeg(node, {
     pixelRatio: 2,
     backgroundColor: "#ffffff",
     cacheBust: true,
+    quality: 0.95,
   });
 
   const link = document.createElement("a");
@@ -351,7 +304,7 @@ export function MemberDetails({ slug }) {
     try {
       const baseName = sanitizeFileName(member.memberName, "member");
 
-      await downloadMemberFormImage(printableFormRef.current, `${baseName}_member_form.png`);
+      await downloadMemberFormImage(printableFormRef.current, `${baseName}_member_form.jpg`);
 
       toast.success("Member form downloaded successfully.");
     } catch (requestError) {
@@ -921,11 +874,16 @@ export function MemberDetails({ slug }) {
                 {renewals.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => downloadRenewalsCsv(member)}
-                    className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-[4px] border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-600 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 sm:w-auto"
+                    onClick={handleDownloadForm}
+                    disabled={downloadingForm}
+                    className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-[4px] border border-slate-300 bg-white px-3 text-[12px] font-semibold text-slate-600 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
-                    <Download className="h-3.5 w-3.5" />
-                    Download Report
+                    {downloadingForm ? (
+                      <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5" />
+                    )}
+                    {downloadingForm ? "Generating..." : "Download Report"}
                   </button>
                 )}
               </div>

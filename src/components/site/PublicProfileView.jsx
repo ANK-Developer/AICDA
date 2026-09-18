@@ -82,7 +82,7 @@ function StatusPill({ active }) {
         title="Not verified"
         aria-label="Not verified"
       >
-        <ThumbsDown className="h-4 w-4 fill-current" />
+        <ThumbsDown className="h-6 w-6 fill-current" />
       </span>
     );
   }
@@ -93,9 +93,9 @@ function StatusPill({ active }) {
       title="Verified by AICDA"
       aria-label="Verified by AICDA"
     >
-      <ThumbsUp className="h-3.5 w-3.5 fill-current" />
+      <ThumbsUp className="h-6 w-6 fill-current" />
 
-      <span>Verified by AICDA</span>
+      {/* <span>Verified by AICDA</span> */}
     </span>
   );
 }

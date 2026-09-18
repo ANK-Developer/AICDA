@@ -19,6 +19,7 @@ import {
 import { toPng } from "html-to-image";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getMediaUrl } from "@/lib/config";
 
 import { getPartnerDetails, renewPartner } from "@/lib/partner-api";
 
@@ -590,7 +591,7 @@ export function PartnerDetails({ slug }) {
               <div className="flex flex-col items-center">
                 {partner.photo ? (
                   <img
-                    src={partner.photo}
+                    src={getMediaUrl(partner.photo)}
                     alt={safeText(partner.partnerName)}
                     className="h-44 w-44 rounded-xl border border-slate-200 object-cover shadow-sm"
                   />

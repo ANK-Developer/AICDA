@@ -636,8 +636,14 @@ export function MemberDetails({ slug }) {
                 <InfoRow label="Designation" value={member.designation} icon={Building2} />
 
                 <InfoRow
-                  label="Joining Date"
+                  label="Valid From"
                   value={formatDate(member.dateOfJoining)}
+                  icon={CalendarDays}
+                />
+
+                <InfoRow
+                  label="Joining Date"
+                  value={formatDate(member.createdAt)}
                   icon={CalendarDays}
                 />
 

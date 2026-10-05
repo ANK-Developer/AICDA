@@ -4,7 +4,7 @@ import { getAllStates, getDistricts } from "india-state-district";
 // than tied to this library's codes, and a couple of names differ from what
 // the library calls them — bridge those before failing to match.
 const STATE_NAME_ALIASES = {
-  delhi: "new delhi",
+  "new delhi": "delhi",
   orissa: "odisha",
 };
 

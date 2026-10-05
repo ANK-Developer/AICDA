@@ -1,11 +1,15 @@
-import { baseApi, unwrapData } from "@/services/api/baseApi";
+import { baseApi, cleanParams, unwrapData } from "@/services/api/baseApi";
 
 export const locationsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     searchCities: builder.query({
-      query: (search) => ({
+      query: ({ search, state, district } = {}) => ({
         url: "/locations/cities",
-        params: search?.trim() ? { search: search.trim() } : undefined,
+        params: cleanParams({
+          search: search?.trim(),
+          state: state?.trim(),
+          district: district?.trim(),
+        }),
       }),
       transformResponse: (response) => {
         const result = unwrapData(response);

@@ -619,8 +619,14 @@ export function PartnerDetails({ slug }) {
 
                   <InfoRow
                     icon={CalendarDays}
-                    label="Joining Date"
+                    label="Valid From"
                     value={formatDate(partner.dateOfJoining)}
+                  />
+
+                  <InfoRow
+                    icon={CalendarDays}
+                    label="Joining Date"
+                    value={formatDate(partner.createdAt)}
                   />
 
                   <InfoRow

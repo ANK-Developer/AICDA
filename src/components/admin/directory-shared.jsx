@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, LoaderCircle, Users, UserCheck, UserX } from "lucide-react";
 import { useLazySearchCitiesQuery } from "@/features/locations/locationsApi";
+import { getCitiesForStateName } from "@/lib/india-cities";
 
 const STAT_CARD_ACCENTS = {
   sky: "bg-sky-50 text-sky-700",
@@ -122,6 +123,9 @@ export const STATES = [
   "Ladakh",
   "Chandigarh",
   "Puducherry",
+  "Andaman and Nicobar Islands",
+  "Dadra and Nagar Haveli and Daman and Diu",
+  "Lakshadweep",
 ];
 
 export const DESIGNATIONS = [
@@ -181,8 +185,6 @@ export function SectionHeading({ children }) {
   );
 }
 
-const MAX_SUGGESTIONS = 10;
-
 // Tracks the anchor's on-screen position while a portaled dropdown is open,
 // recomputing on scroll/resize so it stays pinned under the input.
 function useDropdownPosition(open, anchorRef) {
@@ -233,6 +235,24 @@ function DropdownPortal({ open, anchorRef, contentRef, children }) {
   );
 }
 
+// First row of every dropdown ("Select state", "Select city", …) — the default
+// choice that makes it obvious this is a dropdown, and clears the field again.
+function PlaceholderOption({ label, selected, onSelect }) {
+  return (
+    <li>
+      <button
+        type="button"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={onSelect}
+        className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-slate-400 transition-colors hover:bg-slate-50"
+      >
+        {label}
+        {selected && <Check className="h-3.5 w-3.5 text-sky-600" />}
+      </button>
+    </li>
+  );
+}
+
 // Shared freeform-with-suggestions combobox: text input + filtered dropdown
 // (top N matches), keyboard nav, click-outside close, and a fallback to use
 // whatever was typed if nothing matches. Backs Designation, State, and
@@ -246,11 +266,18 @@ function SuggestCombobox({ value, onChange, options, placeholder, disabled }) {
 
   const filtered = useMemo(() => {
     const query = value.trim().toLowerCase();
-    const source = query
+    // Once a value has been picked, show the full list again (with the pick
+    // marked) so the user can switch — only filter while they're typing.
+    const isSelection = options.some((option) => option.toLowerCase() === query);
+    return query && !isSelection
       ? options.filter((option) => option.toLowerCase().includes(query))
       : options;
-    return source.slice(0, MAX_SUGGESTIONS);
   }, [value, options]);
+
+  const openList = () => {
+    setHighlighted(Math.max(filtered.indexOf(value), 0));
+    setOpen(true);
+  };
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -300,18 +327,18 @@ function SuggestCombobox({ value, onChange, options, placeholder, disabled }) {
           setHighlighted(0);
           setOpen(true);
         }}
-        onFocus={() => !disabled && setOpen(true)}
+        onFocus={() => !disabled && openList()}
         onKeyDown={disabled ? undefined : handleKeyDown}
         placeholder={placeholder}
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
         disabled={disabled}
-        className={`${inputClass} pr-8 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400`}
+        className={`${inputClass} cursor-pointer pr-8 placeholder:text-slate-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:placeholder:text-slate-400`}
       />
       <button
         type="button"
-        onClick={() => !disabled && setOpen((prev) => !prev)}
+        onClick={() => !disabled && (open ? setOpen(false) : openList())}
         tabIndex={-1}
         aria-label="Toggle options"
         disabled={disabled}
@@ -322,6 +349,13 @@ function SuggestCombobox({ value, onChange, options, placeholder, disabled }) {
 
       <DropdownPortal open={open && !disabled} anchorRef={containerRef} contentRef={listRef}>
         <ul className="max-h-52 w-full origin-top animate-in overflow-auto rounded-lg border border-slate-200 bg-white p-1.5 text-[13px] shadow-xl fade-in-0 zoom-in-95 duration-150">
+          {filtered === options && (
+            <PlaceholderOption
+              label={placeholder}
+              selected={!value}
+              onSelect={() => selectOption("")}
+            />
+          )}
           {filtered.length === 0 ? (
             <li className="px-3 py-2 text-slate-400">No matches — press Enter to use “{value}”</li>
           ) : (
@@ -356,7 +390,7 @@ export function DesignationCombobox({ value, onChange }) {
       value={value}
       onChange={onChange}
       options={DESIGNATIONS}
-      placeholder="Type or choose a designation"
+      placeholder="Select designation"
     />
   );
 }
@@ -367,21 +401,21 @@ export function StateCombobox({ value, onChange }) {
       value={value}
       onChange={onChange}
       options={STATES}
-      placeholder="Type or choose a state"
+      placeholder="Select state"
     />
   );
 }
 
-const CITY_SEARCH_DEBOUNCE_MS = 350;
-
-// City suggestions come from the backend (existing cities already entered
-// anywhere), so this needs its own debounced-fetch variant instead of
-// SuggestCombobox's synchronous in-memory filter. Freeform entry is always
-// allowed — a brand-new city just gets created on save.
-export function CityCombobox({ value, onChange }) {
+// City options = every known city of the chosen state (lib/india-cities.js)
+// plus cities already saved under the chosen district, listed first. Typing
+// narrows the list; anything not in it can still be entered freely — a
+// brand-new city just gets created on save.
+export function CityCombobox({ value, onChange, state, district }) {
   const [searchCities] = useLazySearchCitiesQuery();
   const [open, setOpen] = useState(false);
-  const [suggestions, setSuggestions] = useState([]);
+  const [highlighted, setHighlighted] = useState(0);
+  const [stateCities, setStateCities] = useState([]);
+  const [savedCities, setSavedCities] = useState([]);
   const [loading, setLoading] = useState(false);
   const containerRef = useRef(null);
   const listRef = useRef(null);
@@ -399,20 +433,52 @@ export function CityCombobox({ value, onChange }) {
   }, []);
 
   useEffect(() => {
-    if (!open) {
-      setSuggestions([]);
+    if (!state) {
+      setStateCities([]);
+      setSavedCities([]);
       return;
     }
+    let cancelled = false;
     setLoading(true);
-    const timer = setTimeout(() => {
-      searchCities(value, true)
+    Promise.all([
+      getCitiesForStateName(state).catch(() => []),
+      searchCities({ state, district }, true)
         .unwrap()
-        .then(setSuggestions)
-        .catch(() => setSuggestions([]))
-        .finally(() => setLoading(false));
-    }, CITY_SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [open, value, searchCities]);
+        .then((cities) => cities.map((city) => city.cityName))
+        .catch(() => []),
+    ]).then(([all, saved]) => {
+      if (cancelled) return;
+      setStateCities(all);
+      setSavedCities(saved);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [state, district, searchCities]);
+
+  const options = useMemo(
+    () => [...new Set([...(district ? savedCities : []), ...stateCities, ...savedCities])],
+    [district, savedCities, stateCities],
+  );
+
+  const filtered = useMemo(() => {
+    const query = value.trim().toLowerCase();
+    const isSelection = options.some((option) => option.toLowerCase() === query);
+    return query && !isSelection
+      ? options.filter((option) => option.toLowerCase().includes(query))
+      : options;
+  }, [value, options]);
+
+  const openList = () => {
+    setHighlighted(Math.max(filtered.indexOf(value), 0));
+    setOpen(true);
+  };
+
+  const selectOption = (option) => {
+    onChange(option);
+    setOpen(false);
+  };
 
   return (
     <div ref={containerRef} className="relative">
@@ -420,51 +486,78 @@ export function CityCombobox({ value, onChange }) {
         value={value}
         onChange={(event) => {
           onChange(event.target.value);
+          setHighlighted(0);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => state && openList()}
         onKeyDown={(event) => {
           if (event.key === "Escape") setOpen(false);
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setOpen(true);
+            setHighlighted((i) => Math.min(i + 1, filtered.length - 1));
+          }
+          if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setHighlighted((i) => Math.max(i - 1, 0));
+          }
           if (event.key === "Enter") {
             event.preventDefault();
-            setOpen(false);
+            if (open && filtered[highlighted]) selectOption(filtered[highlighted]);
+            else setOpen(false);
           }
         }}
-        placeholder="Type or choose a city"
+        placeholder={state ? "Select city" : "Select a state first"}
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
-        className={inputClass}
+        disabled={!state}
+        className={`${inputClass} cursor-pointer pr-8 placeholder:text-slate-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:placeholder:text-slate-400`}
       />
+      <button
+        type="button"
+        onClick={() => state && (open ? setOpen(false) : openList())}
+        tabIndex={-1}
+        aria-label="Toggle options"
+        disabled={!state}
+        className="absolute right-0 top-0 flex h-8 w-8 items-center justify-center text-slate-400 transition-colors hover:text-sky-600 disabled:cursor-not-allowed disabled:hover:text-slate-400"
+      >
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
 
-      <DropdownPortal open={open} anchorRef={containerRef} contentRef={listRef}>
+      <DropdownPortal open={open && Boolean(state)} anchorRef={containerRef} contentRef={listRef}>
         <ul className="max-h-52 w-full origin-top animate-in overflow-auto rounded-lg border border-slate-200 bg-white p-1.5 text-[13px] shadow-xl fade-in-0 zoom-in-95 duration-150">
-          {loading ? (
+          {filtered === options && (
+            <PlaceholderOption
+              label="Select city"
+              selected={!value}
+              onSelect={() => selectOption("")}
+            />
+          )}
+          {loading && filtered.length === 0 ? (
             <li className="flex items-center gap-2 px-3 py-2 text-slate-400">
-              <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> Searching…
+              <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> Loading…
             </li>
-          ) : suggestions.length === 0 ? (
+          ) : filtered.length === 0 ? (
             <li className="px-3 py-2 text-slate-400">
               No matches{value.trim() ? ` — press Enter to use “${value}”` : ""}
             </li>
           ) : (
-            suggestions.map((city) => (
-              <li key={city.id}>
+            filtered.map((city, index) => (
+              <li key={city}>
                 <button
                   type="button"
                   onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => {
-                    onChange(city.cityName);
-                    setOpen(false);
-                  }}
+                  onClick={() => selectOption(city)}
+                  onMouseEnter={() => setHighlighted(index)}
                   className={`flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left transition-all duration-100 ${
-                    city.cityName === value
+                    index === highlighted
                       ? "scale-[1.02] bg-sky-50 text-sky-700"
                       : "text-slate-700 hover:bg-slate-50"
                   }`}
                 >
-                  {city.cityName}
-                  {city.cityName === value && <Check className="h-3.5 w-3.5 text-sky-600" />}
+                  {city}
+                  {city === value && <Check className="h-3.5 w-3.5 text-sky-600" />}
                 </button>
               </li>
             ))
@@ -485,7 +578,7 @@ export function DistrictSelect({ value, onChange, districts, disabled }) {
       value={value}
       onChange={onChange}
       options={districts}
-      placeholder={disabled ? "Select a state first" : "Type or choose a district"}
+      placeholder={disabled ? "Select a state first" : "Select district"}
       disabled={disabled}
     />
   );
@@ -558,7 +651,7 @@ export const PROFILE_FIELD_KEYS = [
   // City is optional — a blank City never counts toward Profile Incomplete.
   ["companyTelephone", "Company Telephone"],
   ["packetNo", "Packet No."],
-  ["dateOfJoining", "Date of Joining"],
+  ["dateOfJoining", "Valid From"],
   ["aadharNo", "Aadhar Card No."],
   ["validityTo", "Validity To"],
 ];

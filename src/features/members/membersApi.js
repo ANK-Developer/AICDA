@@ -7,6 +7,8 @@ function buildMemberFormData(member) {
     memberName: member.memberName,
     fatherName: member.fatherName,
     dateOfBirth: member.dateOfBirth,
+    specialDate: member.specialDate,
+    specialDateNote: member.specialDateNote,
     residentialAddress: member.residentialAddress,
     mobile: member.mobile,
     residentialTelephone: member.residentialTelephone,

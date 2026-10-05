@@ -82,7 +82,8 @@ export function PartnerPrintableForm({ partner, formRef }) {
             <InfoLine label="Designation" value={partner.designation} />
             <InfoLine label="Valid Until" value={formatDate(partner.validityTo)} />
             <InfoLine label="Status" value={isActive ? "Active" : "Inactive"} />
-            <InfoLine label="Joining Date" value={formatDate(partner.dateOfJoining)} />
+            <InfoLine label="Valid From" value={formatDate(partner.dateOfJoining)} />
+            <InfoLine label="Joining Date" value={formatDate(partner.createdAt)} />
             <InfoLine label="Partner ID" value={partner.partnerId} />
             <InfoLine
               label="Linked Member"

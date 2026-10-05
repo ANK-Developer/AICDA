@@ -458,8 +458,14 @@ export function PublicProfileView({ type, id }) {
                   />
 
                   <InfoRow
-                    label="Joining Date"
+                    label="Valid From"
                     value={formatDate(record.dateOfJoining)}
+                    icon={CalendarDays}
+                  />
+
+                  <InfoRow
+                    label="Joining Date"
+                    value={formatDate(record.createdAt)}
                     icon={CalendarDays}
                   />
 

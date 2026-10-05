@@ -80,7 +80,8 @@ export function MemberPrintableForm({ member, formRef }) {
             <InfoLine label="Designation" value={member.designation} />
             <InfoLine label="Valid Until" value={formatDate(member.validityTo)} />
             <InfoLine label="Status" value={isActive ? "Active" : "Inactive"} />
-            <InfoLine label="Joining Date" value={formatDate(member.dateOfJoining)} />
+            <InfoLine label="Valid From" value={formatDate(member.dateOfJoining)} />
+            <InfoLine label="Joining Date" value={formatDate(member.createdAt)} />
             <InfoLine label="Member ID" value={member.memberId} />
           </tbody>
         </table>

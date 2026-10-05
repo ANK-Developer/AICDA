@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   CreditCard,
   Image as ImageIcon,
-  MapPin,
   Phone,
   Save,
   User,
@@ -20,6 +19,7 @@ import { toast } from "sonner";
 import { getDistrictsForStateName } from "@/lib/india-districts";
 
 import {
+  CityCombobox,
   DesignationCombobox,
   DistrictSelect,
   PROFILE_FIELD_KEYS,
@@ -41,6 +41,8 @@ function buildInitialForm(member) {
       memberName: "",
       fatherName: "",
       dateOfBirth: "",
+      specialDate: "",
+      specialDateNote: "",
       photo: null,
       residentialAddress: "",
       mobile: "",
@@ -67,6 +69,8 @@ function buildInitialForm(member) {
     memberName: member.memberName || "",
     fatherName: member.fatherName || "",
     dateOfBirth: member.dateOfBirth ? member.dateOfBirth.slice(0, 10) : "",
+    specialDate: member.specialDate ? member.specialDate.slice(0, 10) : "",
+    specialDateNote: member.specialDateNote || "",
     photo: null,
     residentialAddress: member.residentialAddress || "",
     mobile: member.mobile || "",
@@ -466,6 +470,42 @@ export function MemberForm({ member, onCancel, onSaved }) {
             />
           </FormInput>
 
+          <FormInput label="Date of Birth">
+            <div className="relative">
+              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+              <input
+                type="date"
+                value={form.dateOfBirth}
+                onChange={(e) => updateField("dateOfBirth", e.target.value)}
+                className={`pl-9 ${inputClass}`}
+              />
+            </div>
+          </FormInput>
+
+          <FormInput label="Special Date">
+            <div className="relative">
+              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+              <input
+                type="date"
+                value={form.specialDate}
+                onChange={(e) => updateField("specialDate", e.target.value)}
+                className={`pl-9 ${inputClass}`}
+              />
+            </div>
+          </FormInput>
+
+          <FormInput label="Special Date Occasion">
+            <input
+              value={form.specialDateNote}
+              onChange={(e) => updateField("specialDateNote", e.target.value)}
+              maxLength={191}
+              placeholder="e.g. Anniversary"
+              className={inputClass}
+            />
+          </FormInput>
+
           <FormInput label="Designation">
             <DesignationCombobox
               value={form.designation}
@@ -543,23 +583,25 @@ export function MemberForm({ member, onCancel, onSaved }) {
           <FormInput label="District">
             <DistrictSelect
               value={form.district}
-              onChange={(value) => updateField("district", value)}
+              onChange={(value) => {
+                updateField("district", value);
+
+                if (value !== form.district) {
+                  updateField("city", "");
+                }
+              }}
               districts={districtOptions}
               disabled={districtOptions.length === 0}
             />
           </FormInput>
 
           <FormInput label="City">
-            <div className="relative">
-              <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
-              <input
-                value={form.city}
-                onChange={(e) => updateField("city", e.target.value)}
-                placeholder="Type city name"
-                className={`pl-9 ${inputClass}`}
-              />
-            </div>
+            <CityCombobox
+              value={form.city}
+              onChange={(value) => updateField("city", value)}
+              state={form.state}
+              district={form.district}
+            />
           </FormInput>
 
           <FormInput label="Packet No.">
@@ -570,19 +612,6 @@ export function MemberForm({ member, onCancel, onSaved }) {
               placeholder="Enter packet number"
               className={inputClass}
             />
-          </FormInput>
-
-          <FormInput label="Birth Day">
-            <div className="relative">
-              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
-              <input
-                type="date"
-                value={form.dateOfBirth}
-                onChange={(e) => updateField("dateOfBirth", e.target.value)}
-                className={`pl-9 ${inputClass}`}
-              />
-            </div>
           </FormInput>
         </div>
       </FormSection>
@@ -597,7 +626,7 @@ export function MemberForm({ member, onCancel, onSaved }) {
         description="Membership dates and payment information"
       >
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 lg:grid-cols-3">
-          <FormInput label="Date of Joining">
+          <FormInput label="Valid From">
             <div className="relative">
               <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 

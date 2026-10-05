@@ -1,3 +1,5 @@
+import { useCreateMemberMutation, useUpdateMemberMutation } from "@/features/members/membersApi";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -5,9 +7,9 @@ import {
   CheckCircle2,
   CreditCard,
   Image as ImageIcon,
-  MapPin,
   Phone,
   Save,
+  Sparkles,
   User,
   Users,
   X,
@@ -15,10 +17,10 @@ import {
 
 import { toast } from "sonner";
 
-import { createMember, updateMember } from "@/lib/member-api";
 import { getDistrictsForStateName } from "@/lib/india-districts";
 
 import {
+  CityCombobox,
   DesignationCombobox,
   DistrictSelect,
   PROFILE_FIELD_KEYS,
@@ -28,6 +30,7 @@ import {
   inputClass,
   textareaClass,
 } from "./directory-shared";
+import { SpecialDatesField } from "./ProfileExtras";
 
 /* =========================================================
    INITIAL FORM
@@ -40,6 +43,7 @@ function buildInitialForm(member) {
       memberName: "",
       fatherName: "",
       dateOfBirth: "",
+      specialDates: [],
       photo: null,
       residentialAddress: "",
       mobile: "",
@@ -66,6 +70,7 @@ function buildInitialForm(member) {
     memberName: member.memberName || "",
     fatherName: member.fatherName || "",
     dateOfBirth: member.dateOfBirth ? member.dateOfBirth.slice(0, 10) : "",
+    specialDates: Array.isArray(member.specialDates) ? member.specialDates : [],
     photo: null,
     residentialAddress: member.residentialAddress || "",
     mobile: member.mobile || "",
@@ -138,6 +143,8 @@ function FormInput({ label, required = false, error, children }) {
 ========================================================= */
 
 export function MemberForm({ member, onCancel, onSaved }) {
+  const createMember = useMutate(useCreateMemberMutation);
+  const updateMember = useMutate(useUpdateMemberMutation);
   const isEdit = Boolean(member);
 
   const [form, setForm] = useState(() => buildInitialForm(member));
@@ -279,7 +286,9 @@ export function MemberForm({ member, onCancel, onSaved }) {
     setSaving(true);
 
     try {
-      const saved = isEdit ? await updateMember(member.id, form) : await createMember(form);
+      const saved = isEdit
+        ? await updateMember({ id: member.id, member: form })
+        : await createMember(form);
 
       toast.success(isEdit ? "Member updated." : "Member added.");
 
@@ -461,6 +470,19 @@ export function MemberForm({ member, onCancel, onSaved }) {
             />
           </FormInput>
 
+          <FormInput label="Date of Birth">
+            <div className="relative">
+              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+              <input
+                type="date"
+                value={form.dateOfBirth}
+                onChange={(e) => updateField("dateOfBirth", e.target.value)}
+                className={`pl-9 ${inputClass}`}
+              />
+            </div>
+          </FormInput>
+
           <FormInput label="Designation">
             <DesignationCombobox
               value={form.designation}
@@ -481,6 +503,21 @@ export function MemberForm({ member, onCancel, onSaved }) {
             </FormInput>
           </div>
         </div>
+      </FormSection>
+
+      {/* ===================================================
+          SPECIAL DATES
+      =================================================== */}
+
+      <FormSection
+        icon={Sparkles}
+        title="Special Dates"
+        description="Anniversary, milestone or any other occasion"
+      >
+        <SpecialDatesField
+          value={form.specialDates}
+          onChange={(value) => updateField("specialDates", value)}
+        />
       </FormSection>
 
       {/* ===================================================
@@ -538,23 +575,25 @@ export function MemberForm({ member, onCancel, onSaved }) {
           <FormInput label="District">
             <DistrictSelect
               value={form.district}
-              onChange={(value) => updateField("district", value)}
+              onChange={(value) => {
+                updateField("district", value);
+
+                if (value !== form.district) {
+                  updateField("city", "");
+                }
+              }}
               districts={districtOptions}
               disabled={districtOptions.length === 0}
             />
           </FormInput>
 
           <FormInput label="City">
-            <div className="relative">
-              <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
-              <input
-                value={form.city}
-                onChange={(e) => updateField("city", e.target.value)}
-                placeholder="Type city name"
-                className={`pl-9 ${inputClass}`}
-              />
-            </div>
+            <CityCombobox
+              value={form.city}
+              onChange={(value) => updateField("city", value)}
+              state={form.state}
+              district={form.district}
+            />
           </FormInput>
 
           <FormInput label="Packet No.">
@@ -565,19 +604,6 @@ export function MemberForm({ member, onCancel, onSaved }) {
               placeholder="Enter packet number"
               className={inputClass}
             />
-          </FormInput>
-
-          <FormInput label="Birth Day">
-            <div className="relative">
-              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
-              <input
-                type="date"
-                value={form.dateOfBirth}
-                onChange={(e) => updateField("dateOfBirth", e.target.value)}
-                className={`pl-9 ${inputClass}`}
-              />
-            </div>
           </FormInput>
         </div>
       </FormSection>
@@ -592,7 +618,7 @@ export function MemberForm({ member, onCancel, onSaved }) {
         description="Membership dates and payment information"
       >
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 lg:grid-cols-3">
-          <FormInput label="Date of Joining">
+          <FormInput label="Valid From">
             <div className="relative">
               <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 

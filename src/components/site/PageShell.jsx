@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 import { SiteHeader } from "./SiteHeader";
 import { SiteFooter } from "./SiteFooter";
 import { Sidebar } from "./Sidebar";
-import { getGalleryImages } from "@/lib/gallery-api"; // use your actual path
+import { useGetGalleryImagesQuery } from "@/features/gallery/galleryApi";
+import { BANNER_QUERY } from "@/hooks/use-banners";
 
 import banner1 from "@/assets/AICDA13-2.webp.asset.json";
 import banner2 from "@/assets/AICDA12-2.webp.asset.json";
@@ -18,41 +19,26 @@ import { getMediaUrl } from "../../lib/config";
 const BANNERS = [banner1, banner2, banner3, banner4, banner5, banner6, banner7];
 
 export function PageShell({ title, subtitle, children, hideSidebar = false, bannerKey }) {
-   const [apiBanners, setApiBanners] = useState([]);
-   const [currentBanner, setCurrentBanner] = useState(0);
+  const [currentBanner, setCurrentBanner] = useState(0);
 
-   // Get BANNER images directly from gallery API
-   useEffect(() => {
-     const fetchBanners = async () => {
-       try {
-         const data = await getGalleryImages("BANNER");
+  // Get BANNER images directly from gallery API (a failed request falls back to the static banners)
+  const { data: bannerData } = useGetGalleryImagesQuery(BANNER_QUERY);
+  const apiBanners = bannerData?.gallery || [];
 
-         console.log("Banner API response:", data);
+  // Replace static images one-by-one with API images
+  const bannerImages = BANNERS.map((staticBanner, index) => {
+    const apiBanner = apiBanners[index];
 
-         setApiBanners(data.gallery || []);
-       } catch (error) {
-         console.error("Failed to fetch banners:", error);
-         setApiBanners([]);
-       }
-     };
+    if (apiBanner?.imageUrl) {
+      return getMediaUrl(apiBanner.imageUrl);
+    }
 
-     fetchBanners();
-   }, []);
-
-   // Replace static images one-by-one with API images
-   const bannerImages = BANNERS.map((staticBanner, index) => {
-     const apiBanner = apiBanners[index];
-
-     if (apiBanner?.imageUrl) {
-       return getMediaUrl(apiBanner.imageUrl);
-     }
-
-     return staticBanner.url;
-   });
+    return staticBanner.url;
+  });
   // Reset slideshow when banner list changes
- useEffect(() => {
-   setCurrentBanner(0);
- }, [apiBanners.length]);
+  useEffect(() => {
+    setCurrentBanner(0);
+  }, [apiBanners.length]);
   // Automatic image change
   useEffect(() => {
     if (bannerImages.length <= 1) return;

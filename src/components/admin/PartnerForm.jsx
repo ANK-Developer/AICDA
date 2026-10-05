@@ -1,14 +1,20 @@
+import {
+  useCreatePartnerMutation,
+  useUpdatePartnerMutation,
+} from "@/features/partners/partnersApi";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Image as ImageIcon } from "lucide-react";
 
-import { toast } from "sonner";
+import { getDistrictsForStateName } from "@/lib/india-districts";
 
-import { createPartner, updatePartner } from "@/lib/partner-api";
+import { toast } from "sonner";
 
 import {
   CityCombobox,
   DesignationCombobox,
+  DistrictSelect,
   FieldRow,
   StateCombobox,
   digitsOnly,
@@ -16,6 +22,7 @@ import {
   inputClass,
   textareaClass,
 } from "./directory-shared";
+import { SpecialDatesField } from "./ProfileExtras";
 
 function buildInitialForm(partner, lockedMember) {
   if (!partner) {
@@ -23,6 +30,8 @@ function buildInitialForm(partner, lockedMember) {
       memberId: lockedMember?.memberId || "",
       partnerName: "",
       fatherName: "",
+      dateOfBirth: "",
+      specialDates: [],
       photo: null,
       residentialAddress: "",
       mobile: "",
@@ -35,6 +44,7 @@ function buildInitialForm(partner, lockedMember) {
       companyTelephone: lockedMember?.companyTelephone || "",
       packetNo: lockedMember?.packetNo || "",
       state: lockedMember?.state?.stateName || lockedMember?.state || "",
+      district: lockedMember?.district || "",
       city: lockedMember?.city?.cityName || lockedMember?.city || "",
       dateOfJoining: "",
       validityTo: "",
@@ -47,6 +57,8 @@ function buildInitialForm(partner, lockedMember) {
     memberId: partner.member?.memberId || "",
     partnerName: partner.partnerName || "",
     fatherName: partner.fatherName || "",
+    dateOfBirth: partner.dateOfBirth ? partner.dateOfBirth.slice(0, 10) : "",
+    specialDates: Array.isArray(partner.specialDates) ? partner.specialDates : [],
     photo: null,
     residentialAddress: partner.residentialAddress || "",
     mobile: partner.mobile || "",
@@ -59,6 +71,7 @@ function buildInitialForm(partner, lockedMember) {
     companyTelephone: partner.companyTelephone || "",
     packetNo: partner.packetNo || "",
     state: partner.state?.stateName || partner.state || "",
+    district: partner.district || "",
     city: partner.city?.cityName || partner.city || "",
     dateOfJoining: partner.dateOfJoining ? partner.dateOfJoining.slice(0, 10) : "",
     validityTo: partner.validityTo ? partner.validityTo.slice(0, 10) : "",
@@ -194,6 +207,8 @@ function FormSection({ title, description, children }) {
 }
 
 export function PartnerForm({ partner, members = [], lockedMember, onCancel, onSaved }) {
+  const createPartner = useMutate(useCreatePartnerMutation);
+  const updatePartner = useMutate(useUpdatePartnerMutation);
   const isEdit = Boolean(partner);
 
   // Locked: the caller already knows which member this is for.
@@ -246,6 +261,8 @@ export function PartnerForm({ partner, members = [], lockedMember, onCancel, onS
     return () => URL.revokeObjectURL(url);
   }, [form.photo]);
 
+  const districtOptions = useMemo(() => getDistrictsForStateName(form.state), [form.state]);
+
   const updateField = (name, value) => {
     setForm((prev) => ({
       ...prev,
@@ -279,6 +296,7 @@ export function PartnerForm({ partner, members = [], lockedMember, onCancel, onS
       companyTelephone: member?.companyTelephone || "",
       packetNo: member?.packetNo || "",
       state: member?.state?.stateName || member?.state || "",
+      district: member?.district || "",
       city: member?.city?.cityName || member?.city || "",
     }));
 
@@ -320,7 +338,9 @@ export function PartnerForm({ partner, members = [], lockedMember, onCancel, onS
     setSaving(true);
 
     try {
-      const saved = isEdit ? await updatePartner(partner.id, form) : await createPartner(form);
+      const saved = isEdit
+        ? await updatePartner({ id: partner.id, partner: form })
+        : await createPartner(form);
 
       toast.success(isEdit ? "Partner updated." : "Partner added.");
 
@@ -465,6 +485,16 @@ export function PartnerForm({ partner, members = [], lockedMember, onCancel, onS
             />
           </FieldRow>
 
+          {/* Date of Birth */}
+          <FieldRow label="Date of Birth">
+            <input
+              type="date"
+              value={form.dateOfBirth}
+              onChange={(e) => updateField("dateOfBirth", e.target.value)}
+              className={inputClass}
+            />
+          </FieldRow>
+
           {/* Designation */}
           <FieldRow label="Designation">
             <DesignationCombobox
@@ -486,6 +516,17 @@ export function PartnerForm({ partner, members = [], lockedMember, onCancel, onS
             </FieldRow>
           </div>
         </div>
+      </FormSection>
+
+      {/* ==================== SPECIAL DATES ==================== */}
+      <FormSection
+        title="Special Dates"
+        description="Anniversary, milestone or any other occasion."
+      >
+        <SpecialDatesField
+          value={form.specialDates}
+          onChange={(value) => updateField("specialDates", value)}
+        />
       </FormSection>
 
       {/* ==================== COMPANY DETAILS ==================== */}
@@ -541,15 +582,37 @@ export function PartnerForm({ partner, members = [], lockedMember, onCancel, onS
                 // and on re-picking the same option.
                 // Only clear city when state actually changes.
                 if (value !== form.state) {
+                  updateField("district", "");
                   updateField("city", "");
                 }
               }}
             />
           </FieldRow>
 
+          {/* District */}
+          <FieldRow label="District">
+            <DistrictSelect
+              value={form.district}
+              onChange={(value) => {
+                updateField("district", value);
+
+                if (value !== form.district) {
+                  updateField("city", "");
+                }
+              }}
+              districts={districtOptions}
+              disabled={districtOptions.length === 0}
+            />
+          </FieldRow>
+
           {/* City */}
           <FieldRow label="City">
-            <CityCombobox value={form.city} onChange={(value) => updateField("city", value)} />
+            <CityCombobox
+              value={form.city}
+              onChange={(value) => updateField("city", value)}
+              state={form.state}
+              district={form.district}
+            />
           </FieldRow>
 
           {/* Packet Number */}
@@ -571,7 +634,7 @@ export function PartnerForm({ partner, members = [], lockedMember, onCancel, onS
       >
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 lg:grid-cols-3">
           {/* Date of Joining */}
-          <FieldRow label="Date of Joining">
+          <FieldRow label="Valid From">
             <input
               type="date"
               value={form.dateOfJoining}

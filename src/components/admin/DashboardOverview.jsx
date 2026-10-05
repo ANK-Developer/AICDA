@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { Link } from "@tanstack/react-router";
+import { AppLink as Link } from "@/components/common/AppLink";
 
 import {
   AlertCircle,
@@ -22,9 +22,9 @@ import {
 
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { getMembers } from "@/lib/member-api";
-import { getEnquiries } from "@/lib/enquiry-api";
-import { getImportantDates, getUpcomingBirthdays } from "@/lib/important-date-api";
+import { useLazyGetMembersQuery } from "@/features/members/membersApi";
+import { useLazyGetEnquiriesQuery } from "@/features/enquiries/enquiriesApi";
+import { useLazyGetImportantDatesQuery } from "@/features/importantDates/importantDatesApi";
 
 import { isExpired, isProfileIncomplete, isWithinDays } from "./directory-shared";
 
@@ -244,6 +244,9 @@ function SectionHeader({ icon: Icon, title, link }) {
 /* -------------------------------------------------------------------------- */
 
 export function DashboardOverview() {
+  const [fetchMembers] = useLazyGetMembersQuery();
+  const [fetchEnquiries] = useLazyGetEnquiriesQuery();
+  const [fetchImportantDates] = useLazyGetImportantDatesQuery();
   const [stats, setStats] = useState(null);
 
   const [recentEnquiries, setRecentEnquiries] = useState([]);
@@ -260,12 +263,18 @@ export function DashboardOverview() {
     setError("");
 
     Promise.all([
-      getMembers({ limit: LARGE_BATCH }),
-      getEnquiries(),
-      getImportantDates(),
-      getUpcomingBirthdays(),
+      fetchMembers({ limit: LARGE_BATCH }, true).unwrap(),
+      fetchEnquiries(undefined, true).unwrap(),
+      fetchImportantDates(
+        { occasion: "special", period: "week", limit: UPCOMING_LIMIT },
+        true,
+      ).unwrap(),
+      fetchImportantDates(
+        { occasion: "birthday", period: "week", limit: UPCOMING_LIMIT },
+        true,
+      ).unwrap(),
     ])
-      .then(([membersResult, enquiriesResult, importantDates, birthdays]) => {
+      .then(([membersResult, enquiriesResult, specialDates, birthdays]) => {
         if (!mounted) return;
 
         const members = membersResult?.members || [];
@@ -280,25 +289,11 @@ export function DashboardOverview() {
 
         /* ---------------------- Important Dates --------------------- */
 
-        const todayOnly = new Date();
-
-        todayOnly.setHours(0, 0, 0, 0);
-
-        const upcoming = (importantDates || [])
-          .map((entry) => ({
-            ...entry,
-            daysLeft: Math.round(
-              (new Date(entry.date).getTime() - todayOnly.getTime()) / (1000 * 60 * 60 * 24),
-            ),
-          }))
-          .filter((entry) => entry.daysLeft >= 0)
-          .sort((a, b) => a.daysLeft - b.daysLeft);
-
-        setUpcomingDates(upcoming.slice(0, UPCOMING_LIMIT));
+        setUpcomingDates(specialDates.items.slice(0, UPCOMING_LIMIT));
 
         /* ------------------------- Birthdays ------------------------ */
 
-        setUpcomingBirthdays((birthdays || []).slice(0, UPCOMING_LIMIT));
+        setUpcomingBirthdays(birthdays.items.slice(0, UPCOMING_LIMIT));
 
         /* ---------------------------- Stats -------------------------- */
 
@@ -337,7 +332,7 @@ export function DashboardOverview() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [fetchMembers, fetchEnquiries, fetchImportantDates]);
 
   /* ---------------------------------------------------------------------- */
   /* Member Cards                                                           */
@@ -425,14 +420,6 @@ export function DashboardOverview() {
                 Here’s a quick overview of what’s happening with AICDA today.
               </p>
             </div>
-
-            <Link
-              to="/admin/directory/create"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md sm:w-auto"
-            >
-              <Plus className="h-4 w-4" />
-              Add Member
-            </Link>
           </div>
         </div>
       </div>
@@ -494,7 +481,7 @@ export function DashboardOverview() {
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <SectionHeader
             icon={CalendarDays}
-            title="Upcoming Important Dates"
+            title="Upcoming Special Dates"
             link="/admin/important-dates"
           />
 
@@ -510,27 +497,30 @@ export function DashboardOverview() {
                 <CalendarDays className="h-5 w-5" />
               </div>
 
-              <p className="mt-3 text-sm font-semibold text-slate-700">No upcoming dates</p>
+              <p className="mt-3 text-sm font-semibold text-slate-700">
+                No special dates this week
+              </p>
 
-              <p className="mt-1 text-xs text-slate-400">Important dates will appear here.</p>
+              <p className="mt-1 text-xs text-slate-400">
+                Member and partner special dates will appear here.
+              </p>
             </div>
           ) : (
             <div className="mt-3 divide-y divide-slate-100">
               {upcomingDates.map((entry) => (
-                <div
-                  key={entry.id || entry._id || entry.date}
-                  className="flex items-center gap-3 py-3"
-                >
+                <div key={entry.key} className="flex items-center gap-3 py-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
                     <CalendarDays className="h-4 w-4" />
                   </span>
 
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-800">
-                      {entry.title || "Important Date"}
-                    </p>
+                    <p className="truncate text-sm font-semibold text-slate-800">{entry.name}</p>
 
-                    <p className="mt-0.5 text-xs text-slate-500">{formatDate(entry.date)}</p>
+                    <p className="mt-0.5 truncate text-xs text-slate-500">
+                      {entry.type === "member" ? "Member" : "Partner"} •{" "}
+                      {formatDate(entry.nextDate)}
+                      {entry.note ? ` • ${entry.note}` : ""}
+                    </p>
                   </div>
 
                   <span className="shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-bold text-sky-700">
@@ -544,7 +534,7 @@ export function DashboardOverview() {
 
         {/* Birthdays */}
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <SectionHeader icon={Cake} title="Upcoming Birthdays" />
+          <SectionHeader icon={Cake} title="Upcoming Birthdays" link="/admin/important-dates" />
 
           {loading ? (
             <div className="mt-3 divide-y divide-slate-100">
@@ -561,248 +551,38 @@ export function DashboardOverview() {
               <p className="mt-3 text-sm font-semibold text-slate-700">No birthdays this week</p>
 
               <p className="mt-1 text-xs text-slate-400">
-                Upcoming member birthdays will appear here.
+                Upcoming member and partner birthdays will appear here.
               </p>
             </div>
           ) : (
             <div className="mt-3 divide-y divide-slate-100">
-              {upcomingBirthdays.map((member) => (
-                <div
-                  key={member.id || member._id || member.memberId}
-                  className="flex items-center gap-3 py-3"
-                >
-                  {member.photo ? (
+              {upcomingBirthdays.map((entry) => (
+                <div key={entry.key} className="flex items-center gap-3 py-3">
+                  {entry.photo ? (
                     <img
-                      src={member.photo}
-                      alt={member.memberName || "Member"}
+                      src={entry.photo}
+                      alt={entry.name}
                       className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-pink-50"
                     />
                   ) : (
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-50 text-sm font-bold text-pink-600">
-                      {(member.memberName || "?").charAt(0).toUpperCase()}
+                      {(entry.name || "?").charAt(0).toUpperCase()}
                     </span>
                   )}
 
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-800">
-                      {member.memberName || "Unknown Member"}
-                    </p>
+                    <p className="truncate text-sm font-semibold text-slate-800">{entry.name}</p>
 
                     <p className="mt-0.5 truncate text-xs text-slate-500">
-                      Member #{member.memberId || "—"}
+                      {entry.type === "member" ? "Member" : "Partner"} #{entry.code}
                     </p>
                   </div>
 
                   <span className="shrink-0 rounded-full bg-pink-50 px-2.5 py-1 text-[11px] font-bold text-pink-600">
-                    {daysLeftLabel(member.daysLeft)}
+                    {daysLeftLabel(entry.daysLeft)}
                   </span>
                 </div>
               ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ================================================================== */}
-      {/* Recent Enquiries + Quick Actions                                  */}
-      {/* ================================================================== */}
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        {/* Recent Enquiries */}
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
-          <div className="border-b border-slate-100 px-4 py-4 sm:px-5">
-            <SectionHeader title="Recent Enquiries" link="/admin/enquiries" />
-
-            <p className="mt-1 text-xs text-slate-500">
-              Latest enquiries received from members and visitors.
-            </p>
-          </div>
-
-          {loading ? (
-            <div className="divide-y divide-slate-100 px-4 sm:px-5">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <ActivitySkeleton key={index} />
-              ))}
-            </div>
-          ) : recentEnquiries.length === 0 ? (
-            <div className="flex min-h-52 flex-col items-center justify-center px-4 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                <HelpCircle className="h-5 w-5" />
-              </div>
-
-              <p className="mt-3 text-sm font-semibold text-slate-700">No enquiries yet</p>
-
-              <p className="mt-1 text-xs text-slate-400">
-                New enquiries will appear here automatically.
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Mobile View */}
-              <div className="divide-y divide-slate-100 md:hidden">
-                {recentEnquiries.map((entry) => (
-                  <div key={entry.id || entry._id} className="flex items-center gap-3 px-4 py-3.5">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sm font-bold text-sky-700">
-                      {(entry.fullName || "?").charAt(0).toUpperCase()}
-                    </span>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-slate-800">
-                        {entry.fullName || "Unknown"}
-                      </p>
-
-                      <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
-                          {requestTypeLabel(entry.requestType)}
-                        </span>
-
-                        <span className="text-[11px] text-slate-500">
-                          {formatDate(entry.createdAt)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
-                  </div>
-                ))}
-              </div>
-
-              {/* Desktop Table */}
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/70">
-                      <th className="px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                        Name
-                      </th>
-
-                      <th className="px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                        Type
-                      </th>
-
-                      <th className="px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                        Date
-                      </th>
-
-                      <th className="px-5 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody className="divide-y divide-slate-100">
-                    {recentEnquiries.map((entry) => (
-                      <tr
-                        key={entry.id || entry._id}
-                        className="group transition-colors hover:bg-slate-50/70"
-                      >
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-3">
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-50 text-xs font-bold text-sky-700">
-                              {(entry.fullName || "?").charAt(0).toUpperCase()}
-                            </span>
-
-                            <span className="max-w-[180px] truncate text-sm font-semibold text-slate-800">
-                              {entry.fullName || "Unknown"}
-                            </span>
-                          </div>
-                        </td>
-
-                        <td className="px-5 py-3.5">
-                          <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                            {requestTypeLabel(entry.requestType)}
-                          </span>
-                        </td>
-
-                        <td className="whitespace-nowrap px-5 py-3.5 text-xs text-slate-500">
-                          {formatDate(entry.createdAt)}
-                        </td>
-
-                        <td className="px-5 py-3.5 text-right">
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                            New
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="border-t border-slate-100 px-5 py-3">
-                <Link
-                  to="/admin/enquiries"
-                  className="group inline-flex items-center gap-1 text-xs font-semibold text-sky-700 hover:text-sky-900"
-                >
-                  View all enquiries
-                  <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                </Link>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Quick Actions */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <div>
-            <h3 className="text-sm font-bold text-slate-800">Quick Actions</h3>
-
-            <p className="mt-1 text-xs text-slate-500">Frequently used admin actions.</p>
-          </div>
-
-          <div className="mt-4 space-y-2.5">
-            {QUICK_ACTIONS.map((action) => {
-              const Icon = action.icon;
-              const tone = CARD_ACCENTS[action.accent];
-
-              return (
-                <Link
-                  key={action.to}
-                  to={action.to}
-                  className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:shadow-sm"
-                >
-                  <span
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone.bg} ${tone.text} transition-transform group-hover:scale-105`}
-                  >
-                    <Icon className="h-5 w-5" />
-                  </span>
-
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-slate-800">
-                      {action.label}
-                    </span>
-
-                    <span className="mt-0.5 block truncate text-[11px] text-slate-400">
-                      {action.description}
-                    </span>
-                  </span>
-
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400 transition-all group-hover:bg-white group-hover:text-slate-600">
-                    <ChevronRight className="h-4 w-4" />
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-
-          {/* Attention */}
-          {stats && (
-            <div className="mt-5 rounded-xl border border-amber-100 bg-amber-50/70 p-3.5">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
-                  <AlertCircle className="h-4 w-4" />
-                </div>
-
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-amber-800">Needs Attention</p>
-
-                  <p className="mt-1 text-[11px] leading-4 text-amber-700">
-                    {stats.profileIncomplete} profiles need completion and {stats.expiringSoon}{" "}
-                    memberships are expiring soon.
-                  </p>
-                </div>
-              </div>
             </div>
           )}
         </div>

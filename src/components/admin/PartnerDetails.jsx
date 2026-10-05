@@ -1,5 +1,13 @@
+import {
+  useAddPartnerSpecialDateMutation,
+  useUpdatePartnerSpecialDateMutation,
+  useDeletePartnerSpecialDateMutation,
+  useLazyGetPartnerDetailsQuery,
+  useRenewPartnerMutation,
+} from "@/features/partners/partnersApi";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { AppLink as Link } from "@/components/common/AppLink";
 import {
   ArrowLeft,
   CalendarDays,
@@ -21,8 +29,6 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMediaUrl } from "@/lib/config";
 
-import { getPartnerDetails, renewPartner } from "@/lib/partner-api";
-
 import {
   buildMemberSlug,
   buildPublicPartnerUrl,
@@ -37,6 +43,7 @@ import {
 } from "./directory-shared";
 
 import { PartnerPrintableForm } from "./PartnerPrintableForm";
+import { formatCalendarDate, ProfileStatusThumb, SpecialDatesSection } from "./ProfileExtras";
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
@@ -189,6 +196,11 @@ function EmptyState({ message = "Partner not found." }) {
 /* -------------------------------------------------------------------------- */
 
 export function PartnerDetails({ slug }) {
+  const getPartnerDetails = useLazyCall(useLazyGetPartnerDetailsQuery);
+  const renewPartner = useMutate(useRenewPartnerMutation);
+  const addSpecialDate = useMutate(useAddPartnerSpecialDateMutation);
+  const updateSpecialDate = useMutate(useUpdatePartnerSpecialDateMutation);
+  const deleteSpecialDate = useMutate(useDeletePartnerSpecialDateMutation);
   const [partner, setPartner] = useState(null);
 
   const [loading, setLoading] = useState(true);
@@ -241,7 +253,7 @@ export function PartnerDetails({ slug }) {
         }
       }
     },
-    [slug],
+    [slug, getPartnerDetails],
   );
 
   useEffect(() => {
@@ -281,7 +293,7 @@ export function PartnerDetails({ slug }) {
     return () => {
       mounted = false;
     };
-  }, [slug]);
+  }, [slug, getPartnerDetails]);
 
   /* ------------------------------------------------------------------------ */
   /* Derived values                                                            */
@@ -300,6 +312,26 @@ export function PartnerDetails({ slug }) {
     .filter(Boolean)
     .map(safeText)
     .join(", ");
+
+  /* ------------------------------------------------------------------------ */
+  /* Special dates                                                             */
+  /* ------------------------------------------------------------------------ */
+
+  // The API answers with the partner's full, updated special-dates array.
+  const handleAddSpecialDate = async ({ date, note }) => {
+    const specialDates = await addSpecialDate({ id: partner.id, date, note });
+    setPartner((current) => ({ ...current, specialDates }));
+  };
+
+  const handleEditSpecialDate = async (dateId, { date, note }) => {
+    const specialDates = await updateSpecialDate({ id: partner.id, dateId, date, note });
+    setPartner((current) => ({ ...current, specialDates }));
+  };
+
+  const handleDeleteSpecialDate = async (dateId) => {
+    const specialDates = await deleteSpecialDate({ id: partner.id, dateId });
+    setPartner((current) => ({ ...current, specialDates }));
+  };
 
   /* ------------------------------------------------------------------------ */
   /* Download partner form                                                    */
@@ -387,7 +419,8 @@ export function PartnerDetails({ slug }) {
     setRenewError("");
 
     try {
-      await renewPartner(partner.id, {
+      await renewPartner({
+        id: partner.id,
         validityTo: renewDate,
         amount: renewAmount === "" ? undefined : Number(renewAmount),
       });
@@ -530,7 +563,9 @@ export function PartnerDetails({ slug }) {
             {/* Profile card                                                   */}
             {/* ------------------------------------------------------------ */}
 
-            <aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <aside className="relative rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <ProfileStatusThumb active={isEffectivelyActive} />
+
               <div className="flex flex-col items-center">
                 {partner.photo ? (
                   <img
@@ -613,8 +648,20 @@ export function PartnerDetails({ slug }) {
 
                   <InfoRow
                     icon={CalendarDays}
-                    label="Joining Date"
+                    label="Valid From"
                     value={formatDate(partner.dateOfJoining)}
+                  />
+
+                  <InfoRow
+                    icon={CalendarDays}
+                    label="Joining Date"
+                    value={formatDate(partner.createdAt)}
+                  />
+
+                  <InfoRow
+                    icon={CalendarDays}
+                    label="Date of Birth"
+                    value={formatCalendarDate(partner.dateOfBirth)}
                   />
 
                   <InfoRow
@@ -630,6 +677,13 @@ export function PartnerDetails({ slug }) {
                   />
                 </div>
               </div>
+
+              <SpecialDatesSection
+                specialDates={partner.specialDates}
+                onAdd={handleAddSpecialDate}
+                onEdit={handleEditSpecialDate}
+                onDelete={handleDeleteSpecialDate}
+              />
 
               {/* Payment history */}
               <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">

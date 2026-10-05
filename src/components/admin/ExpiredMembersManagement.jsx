@@ -1,6 +1,7 @@
+import { useLazyGetMembersQuery } from "@/features/members/membersApi";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Search } from "lucide-react";
-import { getMembers } from "@/lib/member-api";
 
 function isExpired(validityTo) {
   if (!validityTo) return false;
@@ -19,6 +20,7 @@ function formatDate(value) {
 }
 
 export function ExpiredMembersManagement() {
+  const getMembers = useLazyCall(useLazyGetMembersQuery);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -36,7 +38,7 @@ export function ExpiredMembersManagement() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [getMembers]);
 
   const expiredMembers = useMemo(
     () => members.filter((member) => isExpired(member.validityTo)),

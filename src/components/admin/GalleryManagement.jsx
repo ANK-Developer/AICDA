@@ -1,8 +1,20 @@
+import {
+  useLazyGetGalleryImagesQuery,
+  useSetGalleryVisibilityMutation,
+  useUpdateGalleryImageMutation,
+  useUploadGalleryImageMutation,
+} from "@/features/gallery/galleryApi";
+import { getVideoThumbnail, isVideoUrl } from "@/utils/media";
+import { MediaVideo } from "@/components/common/MediaVideo";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useCallback, useEffect, useState } from "react";
 
 import {
+  Ban,
   CalendarDays,
+  CircleCheck,
   Eye,
+  Link2,
   ImageOff,
   LoaderCircle,
   Pencil,
@@ -12,21 +24,11 @@ import {
   ShieldCheck,
   Upload,
   X,
-  Trash2,
 } from "lucide-react";
 
 import { toast } from "react-toastify";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMediaUrl } from "@/lib/config";
-
-import {
-  deleteGalleryImage,
-  getGalleryImages,
-  isVideoFile,
-  isVideoUrl,
-  updateGalleryImage,
-  uploadGalleryImage,
-} from "@/lib/gallery-api";
 
 import { inputClass } from "./directory-shared";
 
@@ -80,6 +82,67 @@ const formatDate = (date) => {
     year: "numeric",
   });
 };
+
+const isBlocked = (image) => image?.isActive === false;
+
+const MEDIA_TYPES = [
+  {
+    value: "IMAGE",
+    label: "Image",
+    accept: "image/*",
+    mime: "image/",
+    formats: "JPG, PNG, WEBP and other images",
+  },
+  {
+    value: "VIDEO",
+    label: "Video",
+    accept: "video/*",
+    mime: "video/",
+    formats: "MP4, WEBM and other videos",
+  },
+];
+
+const mediaTypeOf = (image) =>
+  image?.resourceType === "VIDEO" || (!image?.resourceType && isVideoUrl(imageUrl(image)))
+    ? "VIDEO"
+    : "IMAGE";
+
+function VisibilityBadge({ image, className = "" }) {
+  if (!isBlocked(image)) return null;
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600 ${className}`}
+    >
+      <Ban className="h-3 w-3" />
+      Hidden
+    </span>
+  );
+}
+
+function VisibilityButton({ image, onClick, withLabel = false }) {
+  const blocked = isBlocked(image);
+  const label = blocked ? "Unblock" : "Block";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-lg transition-all ${
+        withLabel ? "h-8 border px-3 text-xs font-bold" : "h-8 w-8"
+      } ${
+        blocked
+          ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+          : "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+      }`}
+    >
+      {blocked ? <CircleCheck className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+      {withLabel && label}
+    </button>
+  );
+}
 
 /* -------------------------------------------------------------------------- */
 /* MODAL                                                                      */
@@ -199,7 +262,7 @@ function MediaViewModal({ image, onClose }) {
   if (!image) return null;
 
   const url = imageUrl(image);
-  const video = isVideoUrl(url);
+  const video = mediaTypeOf(image) === "VIDEO";
 
   return (
     <Modal
@@ -211,17 +274,7 @@ function MediaViewModal({ image, onClose }) {
       {/* Media */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950">
         {video ? (
-          <video
-            src={url}
-            controls
-            autoPlay
-            className="
-              max-h-[68vh]
-              w-full
-              object-contain
-              bg-black
-            "
-          />
+          <MediaVideo url={url} autoPlay className="max-h-[68vh] w-full bg-black object-contain" />
         ) : (
           <img
             src={url}
@@ -296,13 +349,36 @@ function MediaViewModal({ image, onClose }) {
 /* -------------------------------------------------------------------------- */
 
 function GalleryForm({ image, onClose, onSaved }) {
+  const updateGalleryImage = useMutate(useUpdateGalleryImageMutation);
+  const uploadGalleryImage = useMutate(useUploadGalleryImageMutation);
   const [category, setCategory] = useState(image?.category || "ASSOCIATION");
 
   const [description, setDescription] = useState(image?.description || "");
 
+  // New uploads pick Image or Video from the tabs; editing keeps the item's type.
+  const [mediaType, setMediaType] = useState(image ? mediaTypeOf(image) : "IMAGE");
+
   const [file, setFile] = useState(null);
 
+  const [videoUrl, setVideoUrl] = useState(
+    image && mediaTypeOf(image) === "VIDEO" ? image.imageUrl || "" : "",
+  );
+
   const [preview, setPreview] = useState(imageUrl(image));
+
+  const isVideoForm = mediaType === "VIDEO";
+  const videoUrlValid = /^https?:\/\/\S+$/i.test(videoUrl.trim());
+
+  const activeType = MEDIA_TYPES.find((type) => type.value === mediaType);
+
+  const switchType = (value) => {
+    if (value === mediaType) return;
+
+    setMediaType(value);
+    setFile(null);
+    setVideoUrl("");
+    setError("");
+  };
 
   const [saving, setSaving] = useState(false);
 
@@ -327,7 +403,8 @@ function GalleryForm({ image, onClose, onSaved }) {
     };
   }, [file, image]);
 
-  const previewIsVideo = file ? isVideoFile(file) : isVideoUrl(preview);
+  const previewIsVideo = isVideoForm;
+  const previewSrc = isVideoForm ? videoUrl.trim() : preview;
 
   /* ---------------------------------------------------------------------- */
   /* FILE CHANGE                                                             */
@@ -341,11 +418,8 @@ function GalleryForm({ image, onClose, onSaved }) {
       return;
     }
 
-    const isImage = selectedFile.type.startsWith("image/");
-    const isVideo = selectedFile.type.startsWith("video/");
-
-    if (!isImage && !isVideo) {
-      setError("Please select a valid image or video file.");
+    if (!selectedFile.type.startsWith(activeType.mime)) {
+      setError(`Please select a valid ${activeType.label.toLowerCase()} file.`);
       event.target.value = "";
       return;
     }
@@ -361,8 +435,17 @@ function GalleryForm({ image, onClose, onSaved }) {
   const submit = async (event) => {
     event.preventDefault();
 
-    if (!image && !file) {
-      const message = "Please select an image or video.";
+    if (isVideoForm && !videoUrlValid) {
+      const message = "Please enter a valid video URL (starting with http:// or https://).";
+
+      setError(message);
+      toast.error(message);
+
+      return;
+    }
+
+    if (!isVideoForm && !image && !file) {
+      const message = "Please select an image.";
 
       setError(message);
       toast.error(message);
@@ -375,17 +458,25 @@ function GalleryForm({ image, onClose, onSaved }) {
 
     try {
       if (image) {
-        await updateGalleryImage(imageId(image), {
-          file,
+        await updateGalleryImage({
+          id: imageId(image),
+          file: isVideoForm ? null : file,
+          videoUrl: isVideoForm ? videoUrl.trim() : undefined,
           category,
           description: description.trim(),
         });
 
         toast.success("Gallery media updated successfully.");
       } else {
-        await uploadGalleryImage(file, category, "", description.trim());
+        await uploadGalleryImage({
+          file: isVideoForm ? null : file,
+          videoUrl: isVideoForm ? videoUrl.trim() : undefined,
+          category,
+          description: description.trim(),
+          resourceType: mediaType,
+        });
 
-        toast.success("Image uploaded successfully.");
+        toast.success(`${activeType.label} uploaded successfully.`);
       }
 
       await onSaved();
@@ -401,6 +492,32 @@ function GalleryForm({ image, onClose, onSaved }) {
 
   return (
     <form onSubmit={submit} className="space-y-5">
+      {/* Image / Video tabs (new uploads only) */}
+      {!image && (
+        <div
+          role="tablist"
+          aria-label="Media type"
+          className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1"
+        >
+          {MEDIA_TYPES.map((type) => (
+            <button
+              key={type.value}
+              type="button"
+              role="tab"
+              aria-selected={mediaType === type.value}
+              onClick={() => switchType(type.value)}
+              className={`h-9 rounded-md text-sm font-semibold transition-all ${
+                mediaType === type.value
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {type.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* ------------------------------------------------------------------ */}
       {/* CATEGORY                                                            */}
       {/* ------------------------------------------------------------------ */}
@@ -460,7 +577,7 @@ function GalleryForm({ image, onClose, onSaved }) {
           id="gallery-description"
           value={description}
           onChange={(event) => setDescription(event.target.value)}
-          placeholder="Enter image or video description..."
+          placeholder={`Enter ${activeType.label.toLowerCase()} description...`}
           rows={4}
           required
           className="
@@ -493,86 +610,114 @@ function GalleryForm({ image, onClose, onSaved }) {
       {/* FILE                                                                 */}
       {/* ------------------------------------------------------------------ */}
 
-      <div>
-        <label
-          htmlFor="gallery-file"
-          className="mb-1.5 block text-xs font-bold text-slate-700 sm:text-sm"
-        >
-          {image ? "Replace image or video" : "Image or video"}
+      {isVideoForm ? (
+        <div>
+          <label
+            htmlFor="gallery-video-url"
+            className="mb-1.5 block text-xs font-bold text-slate-700 sm:text-sm"
+          >
+            Video URL
+            <span className="ml-1 text-red-600">*</span>
+          </label>
 
-          {!image && <span className="ml-1 text-red-600">*</span>}
-        </label>
+          <div className="relative">
+            <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
-        <label
-          htmlFor="gallery-file"
-          className="
-            flex min-h-12
-            cursor-pointer
-            items-center
-            gap-3
-            rounded-lg
-            border border-dashed
-            border-slate-300
-            bg-slate-50
-            px-3
-            transition-all
-            hover:border-blue-400
-            hover:bg-blue-50/40
-          "
-        >
-          <div
+            <input
+              id="gallery-video-url"
+              type="url"
+              value={videoUrl}
+              onChange={(event) => setVideoUrl(event.target.value)}
+              placeholder="https://www.youtube.com/watch?v=..."
+              required
+              className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-400 hover:border-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+
+          <p className="mt-1 text-[11px] text-slate-400">
+            Paste a YouTube, Vimeo or direct video file (.mp4, .webm) link.
+          </p>
+        </div>
+      ) : (
+        <div>
+          <label
+            htmlFor="gallery-file"
+            className="mb-1.5 block text-xs font-bold text-slate-700 sm:text-sm"
+          >
+            {image ? `Replace ${activeType.label.toLowerCase()}` : activeType.label}
+
+            {!image && <span className="ml-1 text-red-600">*</span>}
+          </label>
+
+          <label
+            htmlFor="gallery-file"
             className="
-              flex h-8 w-8 shrink-0
-              items-center justify-center
+              flex min-h-12
+              cursor-pointer
+              items-center
+              gap-3
               rounded-lg
-              bg-blue-100
-              text-blue-700
+              border border-dashed
+              border-slate-300
+              bg-slate-50
+              px-3
+              transition-all
+              hover:border-blue-400
+              hover:bg-blue-50/40
             "
           >
-            <Upload className="h-4 w-4" />
-          </div>
+            <div
+              className="
+                flex h-8 w-8 shrink-0
+                items-center justify-center
+                rounded-lg
+                bg-blue-100
+                text-blue-700
+              "
+            >
+              <Upload className="h-4 w-4" />
+            </div>
 
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-slate-700 sm:text-sm">
-              {file ? file.name : "Choose image or video"}
-            </p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold text-slate-700 sm:text-sm">
+                {file ? file.name : `Choose ${activeType.label.toLowerCase()}`}
+              </p>
 
-            <p className="text-[11px] text-slate-400">
-              JPG, PNG, WEBP, MP4 and other supported formats
-            </p>
-          </div>
+              <p className="text-[11px] text-slate-400">{activeType.formats}</p>
+            </div>
 
-          <span
-            className="
-              hidden shrink-0
-              rounded-md
-              border border-slate-200
-              bg-white
-              px-3 py-1.5
-              text-xs font-semibold
-              text-slate-600
-              sm:block
-            "
-          >
-            Browse
-          </span>
+            <span
+              className="
+                hidden shrink-0
+                rounded-md
+                border border-slate-200
+                bg-white
+                px-3 py-1.5
+                text-xs font-semibold
+                text-slate-600
+                sm:block
+              "
+            >
+              Browse
+            </span>
 
-          <input
-            id="gallery-file"
-            type="file"
-            accept="image/*,video/*"
-            required={!image}
-            onChange={handleFileChange}
-            className="hidden"
-          />
-        </label>
-      </div>
+            <input
+              id="gallery-file"
+              type="file"
+              accept={activeType.accept}
+              required={!image}
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </label>
+        </div>
+      )}
 
       {/* ------------------------------------------------------------------ */}
       {/* PREVIEW                                                             */}
       {/* ------------------------------------------------------------------ */}
 
-      {preview && (
+      {previewSrc && (
         <div>
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs font-bold text-slate-700 sm:text-sm">Preview</p>
@@ -605,17 +750,7 @@ function GalleryForm({ image, onClose, onSaved }) {
             "
           >
             {previewIsVideo ? (
-              <video
-                src={preview}
-                controls
-                muted
-                className="
-                  h-56
-                  w-full
-                  object-contain
-                  sm:h-72
-                "
-              />
+              <MediaVideo url={previewSrc} muted className="h-56 w-full object-contain sm:h-72" />
             ) : (
               <img
                 src={preview}
@@ -689,7 +824,9 @@ function GalleryForm({ image, onClose, onSaved }) {
 
         <button
           type="submit"
-          disabled={saving || (!image && !file) || !description.trim()}
+          disabled={
+            saving || !description.trim() || (isVideoForm ? !videoUrlValid : !image && !file)
+          }
           className="
             inline-flex
             h-10
@@ -725,7 +862,9 @@ function GalleryForm({ image, onClose, onSaved }) {
               : "Uploading..."
             : image
               ? "Save changes"
-              : "Upload image"}
+              : isVideoForm
+                ? "Add video"
+                : "Upload image"}
         </button>
       </div>
     </form>
@@ -826,7 +965,8 @@ function GalleryTableSkeleton({ rows = 6 }) {
 
 function MediaThumbnail({ image, size = "normal" }) {
   const url = imageUrl(image);
-  const video = isVideoUrl(url);
+  const video = mediaTypeOf(image) === "VIDEO";
+  const thumb = video ? getVideoThumbnail(url) : "";
 
   const sizeClass = size === "small" ? "h-14 w-14" : "h-16 w-16";
 
@@ -843,10 +983,14 @@ function MediaThumbnail({ image, size = "normal" }) {
       `}
     >
       {url ? (
-        video ? (
+        video && !thumb ? (
           <video src={url} muted preload="metadata" className="h-full w-full object-cover" />
         ) : (
-          <img src={url} alt={image?.title || "Gallery"} className="h-full w-full object-cover" />
+          <img
+            src={thumb || url}
+            alt={image?.title || "Gallery"}
+            className="h-full w-full object-cover"
+          />
         )
       ) : (
         <div className="flex h-full w-full items-center justify-center">
@@ -884,6 +1028,8 @@ function MediaThumbnail({ image, size = "normal" }) {
 /* -------------------------------------------------------------------------- */
 
 export function GalleryManagement() {
+  const getGalleryImages = useLazyCall(useLazyGetGalleryImagesQuery);
+  const setVisibility = useMutate(useSetGalleryVisibilityMutation);
   const [images, setImages] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -899,8 +1045,8 @@ export function GalleryManagement() {
   const [editing, setEditing] = useState(undefined);
 
   const [viewing, setViewing] = useState(null);
-  const [deleting, setDeleting] = useState(null);
-  const [deletingLoading, setDeletingLoading] = useState(false);
+  const [toggling, setToggling] = useState(null);
+  const [togglingLoading, setTogglingLoading] = useState(false);
 
   /* ---------------------------------------------------------------------- */
   /* LOAD IMAGES                                                             */
@@ -911,7 +1057,7 @@ export function GalleryManagement() {
     setError("");
 
     try {
-      const result = await getGalleryImages(category);
+      const result = await getGalleryImages({ category, admin: true });
 
       const gallery = Array.isArray(result?.gallery) ? result.gallery : [];
 
@@ -928,7 +1074,7 @@ export function GalleryManagement() {
     } finally {
       setLoading(false);
     }
-  }, [category]);
+  }, [category, getGalleryImages]);
 
   useEffect(() => {
     loadImages();
@@ -969,32 +1115,31 @@ export function GalleryManagement() {
     await loadImages();
   };
 
-  const confirmDelete = async () => {
-    if (!deleting) return;
+  // Block / unblock only flips the public visibility flag; nothing is deleted.
+  const confirmToggle = async () => {
+    if (!toggling) return;
 
-    const id = imageId(deleting);
+    const id = imageId(toggling);
+    const nextActive = isBlocked(toggling);
 
-    if (!id) {
-      toast.error("Gallery image ID not found.");
-      return;
-    }
-
-    setDeletingLoading(true);
+    setTogglingLoading(true);
 
     try {
-      await deleteGalleryImage(id);
+      await setVisibility({ id, isActive: nextActive });
 
-      toast.success("Gallery media deleted successfully.");
+      toast.success(
+        nextActive
+          ? "Media is now visible on the public site."
+          : "Media is now hidden from the public site.",
+      );
 
-      setDeleting(null);
+      setToggling(null);
 
       await loadImages();
     } catch (requestError) {
-      const message = requestError?.message || "Unable to delete gallery media.";
-
-      toast.error(message);
+      toast.error(requestError?.message || "Unable to update media visibility.");
     } finally {
-      setDeletingLoading(false);
+      setTogglingLoading(false);
     }
   };
 
@@ -1042,10 +1187,10 @@ export function GalleryManagement() {
             </div>
 
             <div className="min-w-0">
-              <h2 className="text-lg font-bold text-slate-900 sm:text-xl">Image Gallery</h2>
+              <h2 className="text-lg font-bold text-slate-900 sm:text-xl">Media Library</h2>
 
               <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
-                Manage association, achievement, directory and letter media.
+                Manage images and videos shown on the public site.
               </p>
             </div>
           </div>
@@ -1077,7 +1222,7 @@ export function GalleryManagement() {
             "
           >
             <Plus className="h-4 w-4" />
-            Add Image
+            Add Media
           </button>
         </div>
 
@@ -1360,6 +1505,8 @@ export function GalleryManagement() {
                           <CalendarDays className="h-3 w-3" />
 
                           {formatDate(image.createdAt)}
+
+                          <VisibilityBadge image={image} className="ml-1" />
                         </div>
                       </div>
 
@@ -1398,24 +1545,7 @@ export function GalleryManagement() {
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeleting(image)}
-                          className="
-    flex h-8 w-8
-    items-center justify-center
-    rounded-lg
-    bg-red-50
-    text-red-600
-    transition-all
-    hover:bg-red-100
-    hover:text-red-700
-  "
-                          title="Delete"
-                          aria-label="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <VisibilityButton image={image} onClick={() => setToggling(image)} />
                       </div>
                     </div>
 
@@ -1561,7 +1691,7 @@ export function GalleryManagement() {
                                 </p>
 
                                 <p className="mt-0.5 text-xs text-slate-400">
-                                  {isVideoUrl(imageUrl(image)) ? "Video" : "Image"}
+                                  {mediaTypeOf(image) === "VIDEO" ? "Video" : "Image"}
                                 </p>
                               </div>
                             </div>
@@ -1583,6 +1713,8 @@ export function GalleryManagement() {
                             >
                               {categoryLabel(image.category)}
                             </span>
+
+                            <VisibilityBadge image={image} className="ml-2" />
                           </td>
 
                           {/* Description */}
@@ -1665,32 +1797,11 @@ export function GalleryManagement() {
                                 <Pencil className="h-3.5 w-3.5" />
                                 Edit
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => setDeleting(image)}
-                                className="
-    inline-flex
-    h-8
-    items-center
-    gap-1.5
-    rounded-lg
-    border
-    border-red-200
-    bg-red-50
-    px-3
-    text-xs
-    font-bold
-    text-red-600
-    transition-all
-    hover:border-red-300
-    hover:bg-red-100
-    hover:text-red-700
-  "
-                                title="Delete"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                Delete
-                              </button>
+                              <VisibilityButton
+                                image={image}
+                                withLabel
+                                onClick={() => setToggling(image)}
+                              />
                             </div>
                           </td>
                         </tr>
@@ -1821,7 +1932,7 @@ export function GalleryManagement() {
           description={
             editing
               ? "Update the category, description or replace the current media."
-              : "Choose a category, add a description and upload an image or video."
+              : "Choose a category, add a description and upload an image or add a video link."
           }
           onClose={() => setEditing(undefined)}
           maxWidth="max-w-2xl"
@@ -1830,132 +1941,58 @@ export function GalleryManagement() {
         </Modal>
       )}
 
-      {deleting && (
+      {toggling && (
         <Modal
-          title="Delete Gallery Media?"
-          description="This action cannot be undone."
-          onClose={() => !deletingLoading && setDeleting(null)}
+          title={isBlocked(toggling) ? "Unblock this media?" : "Block this media?"}
+          description={
+            isBlocked(toggling)
+              ? "It will be visible on the public site again."
+              : "It will be hidden from the public site. You can unblock it anytime."
+          }
+          onClose={() => !togglingLoading && setToggling(null)}
           maxWidth="max-w-md"
         >
           <div className="space-y-5">
-            {/* Warning */}
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-              <div className="flex gap-3">
-                <div
-                  className="
-            flex h-10 w-10 shrink-0
-            items-center justify-center
-            rounded-full
-            bg-red-100
-          "
-                >
-                  <Trash2 className="h-5 w-5 text-red-600" />
-                </div>
-
-                <div>
-                  <p className="text-sm font-bold text-red-800">
-                    Are you sure you want to delete this media?
-                  </p>
-
-                  <p className="mt-1 text-xs leading-5 text-red-700">
-                    The gallery image/video will be permanently removed.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Preview */}
-            <div
-              className="
-        overflow-hidden
-        rounded-xl
-        border
-        border-slate-200
-        bg-slate-950
-      "
-            >
-              {isVideoUrl(imageUrl(deleting)) ? (
-                <video
-                  src={imageUrl(deleting)}
-                  muted
-                  controls
-                  className="h-40 w-full object-contain"
-                />
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950">
+              {mediaTypeOf(toggling) === "VIDEO" ? (
+                <MediaVideo url={imageUrl(toggling)} muted className="h-40 w-full object-contain" />
               ) : (
                 <img
-                  src={imageUrl(deleting)}
-                  alt={deleting.title || "Gallery media"}
+                  src={imageUrl(toggling)}
+                  alt={toggling.title || "Gallery media"}
                   className="h-40 w-full object-contain"
                 />
               )}
             </div>
 
-            {/* Buttons */}
-            <div
-              className="
-        flex
-        flex-col-reverse
-        gap-2
-        sm:flex-row
-        sm:justify-end
-      "
-            >
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
-                onClick={() => setDeleting(null)}
-                disabled={deletingLoading}
-                className="
-            h-10
-            rounded-lg
-            border
-            border-slate-200
-            bg-white
-            px-5
-            text-sm
-            font-semibold
-            text-slate-600
-            transition-all
-            hover:bg-slate-100
-            disabled:cursor-not-allowed
-            disabled:opacity-50
-          "
+                onClick={() => setToggling(null)}
+                disabled={togglingLoading}
+                className="h-10 rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 transition-all hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
 
               <button
                 type="button"
-                onClick={confirmDelete}
-                disabled={deletingLoading}
-                className="
-            inline-flex
-            h-10
-            items-center
-            justify-center
-            gap-2
-            rounded-lg
-            bg-red-600
-            px-5
-            text-sm
-            font-bold
-            text-white
-            transition-all
-            hover:bg-red-700
-            disabled:cursor-not-allowed
-            disabled:opacity-60
-          "
+                onClick={confirmToggle}
+                disabled={togglingLoading}
+                className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-5 text-sm font-bold text-white transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+                  isBlocked(toggling)
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "bg-red-600 hover:bg-red-700"
+                }`}
               >
-                {deletingLoading ? (
-                  <>
-                    <LoaderCircle className="h-4 w-4 animate-spin" />
-                    Deleting...
-                  </>
+                {togglingLoading ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : isBlocked(toggling) ? (
+                  <CircleCheck className="h-4 w-4" />
                 ) : (
-                  <>
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                  </>
+                  <Ban className="h-4 w-4" />
                 )}
+                {isBlocked(toggling) ? "Unblock" : "Block"}
               </button>
             </div>
           </div>

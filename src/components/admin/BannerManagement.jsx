@@ -5,15 +5,15 @@ import { Eye, ImageOff, LoaderCircle, Pencil, Plus, Trash2, Upload, X } from "lu
 import { toast } from "sonner";
 
 import {
-  deleteGalleryImage,
-  getGalleryImages,
-  updateGalleryImage,
-  uploadGalleryImage,
-} from "@/lib/gallery-api";
+  useDeleteGalleryImageMutation,
+  useLazyGetGalleryImagesQuery,
+  useUpdateGalleryImageMutation,
+  useUploadGalleryImageMutation,
+} from "@/features/gallery/galleryApi";
 
+import { BANNER_QUERY } from "@/hooks/use-banners";
 import { getMediaUrl } from "@/lib/config";
 import { BANNER_SECTIONS } from "@/lib/banner-sections";
-import { invalidateBannerCache } from "@/hooks/use-banners";
 
 /* =========================================================
    HELPERS
@@ -144,6 +144,11 @@ export function BannerManagement() {
 
   const fileInputRef = useRef(null);
 
+  const [fetchGallery] = useLazyGetGalleryImagesQuery();
+  const [updateGalleryImage] = useUpdateGalleryImageMutation();
+  const [uploadGalleryImage] = useUploadGalleryImageMutation();
+  const [deleteGalleryImage] = useDeleteGalleryImageMutation();
+
   /* =========================================================
      LOAD BANNERS
   ========================================================= */
@@ -153,9 +158,7 @@ export function BannerManagement() {
     setError("");
 
     try {
-      const { gallery } = await getGalleryImages("BANNER", {
-        limit: 100,
-      });
+      const { gallery } = await fetchGallery(BANNER_QUERY, true).unwrap();
 
       setBanners(gallery || []);
     } catch (requestError) {
@@ -314,18 +317,17 @@ export function BannerManagement() {
           Existing banner:
           update the current image
         */
-        await updateGalleryImage(currentExisting.id, {
+        await updateGalleryImage({
+          id: currentExisting.id,
           file,
-        });
+        }).unwrap();
       } else {
         /*
           No banner:
           create new banner
         */
-        await uploadGalleryImage(file, "BANNER", modalSection);
+        await uploadGalleryImage({ file, category: "BANNER", title: modalSection }).unwrap();
       }
-
-      invalidateBannerCache();
 
       await loadBanners();
 
@@ -354,9 +356,7 @@ export function BannerManagement() {
     setError("");
 
     try {
-      await deleteGalleryImage(existing.id);
-
-      invalidateBannerCache();
+      await deleteGalleryImage(existing.id).unwrap();
 
       await loadBanners();
 
@@ -385,9 +385,7 @@ export function BannerManagement() {
       /*
         Same existing delete API
       */
-      await deleteGalleryImage(deletingBanner.id);
-
-      invalidateBannerCache();
+      await deleteGalleryImage(deletingBanner.id).unwrap();
 
       await loadBanners();
 

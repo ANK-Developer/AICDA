@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import { Menu, X, Phone, Mail } from "lucide-react";
 import { primaryNav } from "./nav-data";
@@ -33,7 +33,11 @@ export function SiteHeader() {
       <div className="bg-background text-foreground">
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between gap-4">
           <Link to="/" className="flex items-center gap-3 group">
-            <img src={aicdaLogo} alt="AICDA" className="h-12 w-12 shrink-0 object-contain sm:h-14 sm:w-14" />
+            <img
+              src={aicdaLogo}
+              alt="AICDA"
+              className="h-12 w-12 shrink-0 object-contain sm:h-14 sm:w-14"
+            />
             <span className="leading-tight">
               <span
                 className="block text-lg sm:text-2xl font-black tracking-tight text-primary"
@@ -55,11 +59,11 @@ export function SiteHeader() {
             </span>
             <span className="opacity-70">RTO Form | Registration No. - S-55924/2006</span>
             <Link
-              to="/become-member"
+              to="/become-member#enquiry-form"
               style={becomeMemberStyle}
               className="rounded-md bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary-deep"
             >
-              Become Member
+              Enquiry
             </Link>
           </div>
           <button className="lg:hidden p-2" onClick={() => setOpen(!open)} aria-label="Menu">
@@ -88,12 +92,12 @@ export function SiteHeader() {
           <nav className="lg:hidden">
             <div className="px-2 pt-2 lg:hidden">
               <Link
-                to="/become-member"
+                to="/become-member#enquiry-form"
                 onClick={() => setOpen(false)}
                 style={becomeMemberStyleLight}
                 className="block rounded-md bg-primary-foreground px-3 py-2 text-center text-sm font-semibold text-primary hover:opacity-90"
               >
-                Become Member
+                Enquiry
               </Link>
             </div>
             <ul className="px-2 py-2">

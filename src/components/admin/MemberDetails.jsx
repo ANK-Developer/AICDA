@@ -1,5 +1,13 @@
+import {
+  useAddMemberSpecialDateMutation,
+  useUpdateMemberSpecialDateMutation,
+  useDeleteMemberSpecialDateMutation,
+  useLazyGetMemberDetailsQuery,
+  useRenewMemberMutation,
+} from "@/features/members/membersApi";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { AppLink as Link } from "@/components/common/AppLink";
 import {
   ArrowLeft,
   CalendarDays,
@@ -26,7 +34,6 @@ import { toast } from "sonner";
 import { getMediaUrl } from "@/lib/config";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import { getMemberDetails, renewMember } from "@/lib/member-api";
 
 import {
   buildPartnerSlug,
@@ -43,6 +50,7 @@ import {
 
 import { MemberPrintableForm } from "./MemberPrintableForm";
 import { PartnerForm } from "./PartnerForm";
+import { formatCalendarDate, ProfileStatusThumb, SpecialDatesSection } from "./ProfileExtras";
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
@@ -85,6 +93,7 @@ function formatDate(value) {
 function sanitizeFileName(value, fallback) {
   const name = String(value || fallback)
     .trim()
+    // eslint-disable-next-line no-control-regex -- strips control characters from file names
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
     .replace(/\s+/g, "_");
 
@@ -175,6 +184,11 @@ function DetailsSkeleton() {
 /* -------------------------------------------------------------------------- */
 
 export function MemberDetails({ slug }) {
+  const getMemberDetails = useLazyCall(useLazyGetMemberDetailsQuery);
+  const renewMember = useMutate(useRenewMemberMutation);
+  const addSpecialDate = useMutate(useAddMemberSpecialDateMutation);
+  const updateSpecialDate = useMutate(useUpdateMemberSpecialDateMutation);
+  const deleteSpecialDate = useMutate(useDeleteMemberSpecialDateMutation);
   const [member, setMember] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -245,7 +259,7 @@ export function MemberDetails({ slug }) {
     return () => {
       mounted = false;
     };
-  }, [slug]);
+  }, [slug, getMemberDetails]);
 
   /* ------------------------------------------------------------------------ */
   /* Derived Values                                                           */
@@ -288,6 +302,26 @@ export function MemberDetails({ slug }) {
     } catch {
       // loadMember already handles the error state.
     }
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /* Special Dates                                                            */
+  /* ------------------------------------------------------------------------ */
+
+  // The API answers with the member's full, updated special-dates array.
+  const handleAddSpecialDate = async ({ date, note }) => {
+    const specialDates = await addSpecialDate({ id: member.id, date, note });
+    setMember((current) => ({ ...current, specialDates }));
+  };
+
+  const handleEditSpecialDate = async (dateId, { date, note }) => {
+    const specialDates = await updateSpecialDate({ id: member.id, dateId, date, note });
+    setMember((current) => ({ ...current, specialDates }));
+  };
+
+  const handleDeleteSpecialDate = async (dateId) => {
+    const specialDates = await deleteSpecialDate({ id: member.id, dateId });
+    setMember((current) => ({ ...current, specialDates }));
   };
 
   /* ------------------------------------------------------------------------ */
@@ -386,7 +420,8 @@ export function MemberDetails({ slug }) {
     setRenewError("");
 
     try {
-      await renewMember(member.id, {
+      await renewMember({
+        id: member.id,
         validityTo: renewDate,
         amount: renewAmount !== "" ? Number(renewAmount) : undefined,
       });
@@ -520,7 +555,9 @@ export function MemberDetails({ slug }) {
           {/* MEMBER PROFILE                                                */}
           {/* ============================================================ */}
 
-          <aside className="h-fit rounded-[5px] border border-slate-200 bg-white p-5 shadow-sm">
+          <aside className="relative h-fit rounded-[5px] border border-slate-200 bg-white p-5 shadow-sm">
+            <ProfileStatusThumb active={isEffectivelyActive} />
+
             <div className="flex flex-col items-center">
               {member.photo ? (
                 <div className="overflow-hidden rounded-[5px] border border-slate-200 bg-slate-50">
@@ -628,8 +665,20 @@ export function MemberDetails({ slug }) {
                 <InfoRow label="Designation" value={member.designation} icon={Building2} />
 
                 <InfoRow
-                  label="Joining Date"
+                  label="Valid From"
                   value={formatDate(member.dateOfJoining)}
+                  icon={CalendarDays}
+                />
+
+                <InfoRow
+                  label="Joining Date"
+                  value={formatDate(member.createdAt)}
+                  icon={CalendarDays}
+                />
+
+                <InfoRow
+                  label="Date of Birth"
+                  value={formatCalendarDate(member.dateOfBirth)}
                   icon={CalendarDays}
                 />
 
@@ -646,6 +695,13 @@ export function MemberDetails({ slug }) {
                 />
               </div>
             </div>
+
+            <SpecialDatesSection
+              specialDates={member.specialDates}
+              onAdd={handleAddSpecialDate}
+              onEdit={handleEditSpecialDate}
+              onDelete={handleDeleteSpecialDate}
+            />
 
             {/* ---------------------------------------------------------- */}
             {/* Partners                                                    */}

@@ -1,5 +1,14 @@
+import {
+  useDeleteMemberMutation,
+  useLazyGetMembersQuery,
+  useRenewMemberMutation,
+  useToggleMemberStatusMutation,
+} from "@/features/members/membersApi";
+import { useLazyGetPartnersQuery } from "@/features/partners/partnersApi";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { AppLink as Link } from "@/components/common/AppLink";
 import {
   ArrowLeft,
   Eye,
@@ -25,13 +34,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  deleteMember as deleteMemberRequest,
-  getMembers,
-  renewMember,
-  toggleMemberStatus,
-} from "@/lib/member-api";
-import { getPartners } from "@/lib/partner-api";
 import {
   buildMemberSlug,
   buildPartnerSlug,
@@ -144,11 +146,17 @@ export function DirectoryTableSkeleton({ columns = 6, rows = 5 }) {
 }
 
 export function DirectoryManagement() {
+  const getMembers = useLazyCall(useLazyGetMembersQuery);
+  const getPartners = useLazyCall(useLazyGetPartnersQuery);
+  const deleteMemberRequest = useMutate(useDeleteMemberMutation);
+  const toggleMemberStatus = useMutate(useToggleMemberStatusMutation);
+  const renewMember = useMutate(useRenewMemberMutation);
   // Lets dashboard cards deep-link a specific view, e.g.
   // /admin/directory?status=active — read once on mount so a manual filter
   // click afterward isn't fighting the URL on every render.
   const navigate = useNavigate();
-  const routeSearch = useSearch({ strict: false });
+  const [searchParams] = useSearchParams();
+  const routeSearch = Object.fromEntries(searchParams);
   const initialStatusFilter = FILTERS.some((f) => f.value === routeSearch?.status)
     ? routeSearch.status
     : "all";
@@ -252,7 +260,7 @@ export function DirectoryManagement() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [getMembers, getPartners]);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -331,10 +339,9 @@ export function DirectoryManagement() {
         if (isStale()) return;
 
         if (partnerResults.length === 1) {
-          navigate({
-            to: "/admin/directory/partner/$slug/details",
-            params: { slug: buildPartnerSlug(partnerResults[0]) },
-          });
+          navigate(
+            `/admin/directory/partner/${encodeURIComponent(buildPartnerSlug(partnerResults[0]))}/details`,
+          );
           return;
         }
 
@@ -525,7 +532,8 @@ export function DirectoryManagement() {
     setRenewing(true);
     setRenewError("");
     try {
-      await renewMember(renewTarget.id, {
+      await renewMember({
+        id: renewTarget.id,
         validityTo: renewDate,
         amount: renewAmount ? Number(renewAmount) : undefined,
       });

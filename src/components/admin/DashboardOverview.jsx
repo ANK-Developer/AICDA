@@ -24,10 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { useLazyGetMembersQuery } from "@/features/members/membersApi";
 import { useLazyGetEnquiriesQuery } from "@/features/enquiries/enquiriesApi";
-import {
-  useLazyGetImportantDatesQuery,
-  useLazyGetUpcomingBirthdaysQuery,
-} from "@/features/importantDates/importantDatesApi";
+import { useLazyGetImportantDatesQuery } from "@/features/importantDates/importantDatesApi";
 
 import { isExpired, isProfileIncomplete, isWithinDays } from "./directory-shared";
 
@@ -250,7 +247,6 @@ export function DashboardOverview() {
   const [fetchMembers] = useLazyGetMembersQuery();
   const [fetchEnquiries] = useLazyGetEnquiriesQuery();
   const [fetchImportantDates] = useLazyGetImportantDatesQuery();
-  const [fetchUpcomingBirthdays] = useLazyGetUpcomingBirthdaysQuery();
   const [stats, setStats] = useState(null);
 
   const [recentEnquiries, setRecentEnquiries] = useState([]);
@@ -269,10 +265,16 @@ export function DashboardOverview() {
     Promise.all([
       fetchMembers({ limit: LARGE_BATCH }, true).unwrap(),
       fetchEnquiries(undefined, true).unwrap(),
-      fetchImportantDates(undefined, true).unwrap(),
-      fetchUpcomingBirthdays(undefined, true).unwrap(),
+      fetchImportantDates(
+        { occasion: "special", period: "week", limit: UPCOMING_LIMIT },
+        true,
+      ).unwrap(),
+      fetchImportantDates(
+        { occasion: "birthday", period: "week", limit: UPCOMING_LIMIT },
+        true,
+      ).unwrap(),
     ])
-      .then(([membersResult, enquiriesResult, importantDates, birthdays]) => {
+      .then(([membersResult, enquiriesResult, specialDates, birthdays]) => {
         if (!mounted) return;
 
         const members = membersResult?.members || [];
@@ -287,25 +289,11 @@ export function DashboardOverview() {
 
         /* ---------------------- Important Dates --------------------- */
 
-        const todayOnly = new Date();
-
-        todayOnly.setHours(0, 0, 0, 0);
-
-        const upcoming = (importantDates || [])
-          .map((entry) => ({
-            ...entry,
-            daysLeft: Math.round(
-              (new Date(entry.date).getTime() - todayOnly.getTime()) / (1000 * 60 * 60 * 24),
-            ),
-          }))
-          .filter((entry) => entry.daysLeft >= 0)
-          .sort((a, b) => a.daysLeft - b.daysLeft);
-
-        setUpcomingDates(upcoming.slice(0, UPCOMING_LIMIT));
+        setUpcomingDates(specialDates.items.slice(0, UPCOMING_LIMIT));
 
         /* ------------------------- Birthdays ------------------------ */
 
-        setUpcomingBirthdays((birthdays || []).slice(0, UPCOMING_LIMIT));
+        setUpcomingBirthdays(birthdays.items.slice(0, UPCOMING_LIMIT));
 
         /* ---------------------------- Stats -------------------------- */
 
@@ -344,7 +332,7 @@ export function DashboardOverview() {
     return () => {
       mounted = false;
     };
-  }, [fetchMembers, fetchEnquiries, fetchImportantDates, fetchUpcomingBirthdays]);
+  }, [fetchMembers, fetchEnquiries, fetchImportantDates]);
 
   /* ---------------------------------------------------------------------- */
   /* Member Cards                                                           */
@@ -493,7 +481,7 @@ export function DashboardOverview() {
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <SectionHeader
             icon={CalendarDays}
-            title="Upcoming Important Dates"
+            title="Upcoming Special Dates"
             link="/admin/important-dates"
           />
 
@@ -509,27 +497,30 @@ export function DashboardOverview() {
                 <CalendarDays className="h-5 w-5" />
               </div>
 
-              <p className="mt-3 text-sm font-semibold text-slate-700">No upcoming dates</p>
+              <p className="mt-3 text-sm font-semibold text-slate-700">
+                No special dates this week
+              </p>
 
-              <p className="mt-1 text-xs text-slate-400">Important dates will appear here.</p>
+              <p className="mt-1 text-xs text-slate-400">
+                Member and partner special dates will appear here.
+              </p>
             </div>
           ) : (
             <div className="mt-3 divide-y divide-slate-100">
               {upcomingDates.map((entry) => (
-                <div
-                  key={entry.id || entry._id || entry.date}
-                  className="flex items-center gap-3 py-3"
-                >
+                <div key={entry.key} className="flex items-center gap-3 py-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
                     <CalendarDays className="h-4 w-4" />
                   </span>
 
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-800">
-                      {entry.title || "Important Date"}
-                    </p>
+                    <p className="truncate text-sm font-semibold text-slate-800">{entry.name}</p>
 
-                    <p className="mt-0.5 text-xs text-slate-500">{formatDate(entry.date)}</p>
+                    <p className="mt-0.5 truncate text-xs text-slate-500">
+                      {entry.type === "member" ? "Member" : "Partner"} •{" "}
+                      {formatDate(entry.nextDate)}
+                      {entry.note ? ` • ${entry.note}` : ""}
+                    </p>
                   </div>
 
                   <span className="shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-bold text-sky-700">
@@ -543,7 +534,7 @@ export function DashboardOverview() {
 
         {/* Birthdays */}
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <SectionHeader icon={Cake} title="Upcoming Birthdays" />
+          <SectionHeader icon={Cake} title="Upcoming Birthdays" link="/admin/important-dates" />
 
           {loading ? (
             <div className="mt-3 divide-y divide-slate-100">
@@ -560,40 +551,35 @@ export function DashboardOverview() {
               <p className="mt-3 text-sm font-semibold text-slate-700">No birthdays this week</p>
 
               <p className="mt-1 text-xs text-slate-400">
-                Upcoming member birthdays will appear here.
+                Upcoming member and partner birthdays will appear here.
               </p>
             </div>
           ) : (
             <div className="mt-3 divide-y divide-slate-100">
-              {upcomingBirthdays.map((member) => (
-                <div
-                  key={member.id || member._id || member.memberId}
-                  className="flex items-center gap-3 py-3"
-                >
-                  {member.photo ? (
+              {upcomingBirthdays.map((entry) => (
+                <div key={entry.key} className="flex items-center gap-3 py-3">
+                  {entry.photo ? (
                     <img
-                      src={member.photo}
-                      alt={member.memberName || "Member"}
+                      src={entry.photo}
+                      alt={entry.name}
                       className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-pink-50"
                     />
                   ) : (
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pink-50 text-sm font-bold text-pink-600">
-                      {(member.memberName || "?").charAt(0).toUpperCase()}
+                      {(entry.name || "?").charAt(0).toUpperCase()}
                     </span>
                   )}
 
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-800">
-                      {member.memberName || "Unknown Member"}
-                    </p>
+                    <p className="truncate text-sm font-semibold text-slate-800">{entry.name}</p>
 
                     <p className="mt-0.5 truncate text-xs text-slate-500">
-                      Member #{member.memberId || "—"}
+                      {entry.type === "member" ? "Member" : "Partner"} #{entry.code}
                     </p>
                   </div>
 
                   <span className="shrink-0 rounded-full bg-pink-50 px-2.5 py-1 text-[11px] font-bold text-pink-600">
-                    {daysLeftLabel(member.daysLeft)}
+                    {daysLeftLabel(entry.daysLeft)}
                   </span>
                 </div>
               ))}

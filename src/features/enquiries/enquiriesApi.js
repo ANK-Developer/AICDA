@@ -15,6 +15,7 @@ export const enquiriesApi = baseApi.injectEndpoints({
           page: options.page,
           limit: options.limit,
           search: options.search?.trim(),
+          status: options.status !== "all" ? options.status : undefined,
         }),
       }),
       transformResponse: (response) => {
@@ -22,13 +23,19 @@ export const enquiriesApi = baseApi.injectEndpoints({
         return {
           enquiries: data.enquiries || data.items || data.data || [],
           count: data.count ?? data.total ?? data.totalCount ?? 0,
+          stats: data.stats || null,
+          pagination: data.pagination || null,
         };
       },
       providesTags: ["Enquiry"],
     }),
 
-    deleteEnquiry: builder.mutation({
-      query: (id) => ({ url: `/enquiries/${id}`, method: "DELETE" }),
+    updateEnquiryStatus: builder.mutation({
+      query: ({ id, status }) => ({
+        url: `/enquiries/${id}/status`,
+        method: "PATCH",
+        body: { status },
+      }),
       transformResponse: unwrapData,
       invalidatesTags: ["Enquiry"],
     }),
@@ -39,5 +46,5 @@ export const {
   useSubmitEnquiryMutation,
   useGetEnquiriesQuery,
   useLazyGetEnquiriesQuery,
-  useDeleteEnquiryMutation,
+  useUpdateEnquiryStatusMutation,
 } = enquiriesApi;

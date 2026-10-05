@@ -1,9 +1,9 @@
 import {
-  useDeleteEnquiryMutation,
   useLazyGetEnquiriesQuery,
+  useUpdateEnquiryStatusMutation,
 } from "@/features/enquiries/enquiriesApi";
 import { useLazyCall, useMutate } from "@/services/api/useApiCall";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Building2,
   Calendar,
@@ -17,7 +17,6 @@ import {
   Phone,
   RefreshCw,
   Search,
-  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -25,9 +24,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const PAGE_SIZE = 10;
 
-const isMembership = (value) => value === "MEMBERSHIP" || !value;
+const STATUSES = [
+  ["NEW", "New", "border-blue-200 bg-blue-50 text-blue-700"],
+  ["IN_PROGRESS", "In Progress", "border-amber-200 bg-amber-50 text-amber-700"],
+  ["RESOLVED", "Resolved", "border-emerald-200 bg-emerald-50 text-emerald-700"],
+  ["CLOSED", "Closed", "border-slate-200 bg-slate-100 text-slate-600"],
+];
 
-const requestTypeLabel = (value) => (isMembership(value) ? "Membership" : "General Enquiry");
+const statusLabel = (value) => STATUSES.find(([key]) => key === value)?.[1] || value || "—";
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
@@ -69,27 +73,34 @@ const formatDateTime = (date) => {
   });
 };
 
-/* -------------------------------------------------------------------------- */
-/* Type Badge                                                                 */
-/* -------------------------------------------------------------------------- */
-
-function TypeBadge({ value }) {
-  const membership = isMembership(value);
+function StatusBadge({ value }) {
+  const style = STATUSES.find(([key]) => key === value)?.[2] || STATUSES[0][2];
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold whitespace-nowrap ${
-        membership
-          ? "border-red-200 bg-red-50 text-red-700"
-          : "border-slate-200 bg-slate-50 text-slate-600"
-      }`}
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold whitespace-nowrap ${style}`}
     >
-      <span
-        className={`mr-1.5 h-1.5 w-1.5 rounded-full ${membership ? "bg-red-600" : "bg-slate-500"}`}
-      />
-
-      {requestTypeLabel(value)}
+      {statusLabel(value)}
     </span>
+  );
+}
+
+function StatusSelect({ value, onChange }) {
+  const style = STATUSES.find(([key]) => key === value)?.[2] || STATUSES[0][2];
+
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      aria-label="Change status"
+      className={`h-8 cursor-pointer rounded-full border px-3 text-[11px] font-bold outline-none transition-all hover:shadow-sm focus:ring-2 focus:ring-red-100 ${style}`}
+    >
+      {STATUSES.map(([key, label]) => (
+        <option key={key} value={key} className="bg-white font-semibold text-slate-700">
+          {label}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -197,149 +208,104 @@ function EmptyState() {
 
 export function EnquiryManagement() {
   const getEnquiries = useLazyCall(useLazyGetEnquiriesQuery);
-  const deleteEnquiry = useMutate(useDeleteEnquiryMutation);
+  const updateStatus = useMutate(useUpdateEnquiryStatusMutation);
   const [enquiries, setEnquiries] = useState([]);
+  const [stats, setStats] = useState({ total: 0, NEW: 0, IN_PROGRESS: 0, RESOLVED: 0, CLOSED: 0 });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [viewing, setViewing] = useState(null);
+  const [pendingChange, setPendingChange] = useState(null);
+  const [savingStatus, setSavingStatus] = useState(false);
 
-  /* ------------------------------------------------------------------------ */
-  /* Load enquiries                                                           */
-  /* ------------------------------------------------------------------------ */
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 350);
 
-  const loadEnquiries = async ({ silent = false } = {}) => {
-    if (silent) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
-    setError("");
+  const loadEnquiries = useCallback(
+    async ({ silent = false } = {}) => {
+      if (silent) setRefreshing(true);
+      else setLoading(true);
 
-    try {
-      const result = await getEnquiries();
+      setError("");
 
-      const data = Array.isArray(result?.enquiries) ? result.enquiries : [];
+      try {
+        const result = await getEnquiries({
+          page,
+          limit: PAGE_SIZE,
+          search,
+          status: statusFilter,
+        });
 
-      setEnquiries(data);
-    } catch (requestError) {
-      const message = requestError?.message || "Could not load enquiries.";
+        setEnquiries(Array.isArray(result?.enquiries) ? result.enquiries : []);
+        if (result?.stats) setStats((previous) => ({ ...previous, ...result.stats }));
+        if (result?.pagination) setPagination(result.pagination);
+      } catch (requestError) {
+        const message = requestError?.message || "Could not load enquiries.";
 
-      setError(message);
-      toast.error(message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+        setError(message);
+        toast.error(message);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [getEnquiries, page, search, statusFilter],
+  );
 
   useEffect(() => {
     loadEnquiries();
-  }, []);
+  }, [loadEnquiries]);
 
-  /* ------------------------------------------------------------------------ */
-  /* Filter                                                                   */
-  /* ------------------------------------------------------------------------ */
+  const totalPages = Math.max(1, pagination.totalPages || 1);
+  const currentPage = pagination.page || page;
+  const pageRows = enquiries;
 
-  const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
+  const confirmStatusChange = async () => {
+    if (!pendingChange) return;
 
-    return enquiries.filter((entry) => {
-      const searchableText = [
-        entry?.fullName,
-        entry?.mobile,
-        entry?.email,
-        entry?.companyName,
-        entry?.city,
-        entry?.state,
-        entry?.message,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+    const { entry, nextStatus } = pendingChange;
 
-      const matchesQuery = !query || searchableText.includes(query);
-
-      const matchesType =
-        typeFilter === "all" ||
-        (typeFilter === "membership" && isMembership(entry?.requestType)) ||
-        (typeFilter === "general" && !isMembership(entry?.requestType));
-
-      return matchesQuery && matchesType;
-    });
-  }, [enquiries, search, typeFilter]);
-
-  /* ------------------------------------------------------------------------ */
-  /* Pagination                                                               */
-  /* ------------------------------------------------------------------------ */
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-
-  const currentPage = Math.min(page, totalPages);
-
-  const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
-  useEffect(() => {
-    setPage(1);
-  }, [search, typeFilter]);
-
-  /* ------------------------------------------------------------------------ */
-  /* Delete                                                                   */
-  /* ------------------------------------------------------------------------ */
-
-  const performDelete = async (entry) => {
-    const id = getId(entry);
-
-    if (!id) {
-      toast.error("Unable to delete this enquiry.");
-      return;
-    }
+    setSavingStatus(true);
 
     try {
-      await deleteEnquiry(id);
+      await updateStatus({ id: getId(entry), status: nextStatus });
 
-      setEnquiries((prev) => prev.filter((item) => getId(item) !== id));
+      toast.success(`Status changed to ${statusLabel(nextStatus)}.`);
 
-      if (viewing && getId(viewing) === id) {
-        setViewing(null);
+      if (viewing && getId(viewing) === getId(entry)) {
+        setViewing({ ...viewing, status: nextStatus });
       }
 
-      toast.success(`Enquiry from ${entry?.fullName || "this contact"} deleted.`);
+      setPendingChange(null);
+      await loadEnquiries({ silent: true });
     } catch (requestError) {
-      const message = requestError?.message || "Could not delete this enquiry.";
-
-      setError(message);
-      toast.error(message);
+      toast.error(requestError?.message || "Could not update the status.");
+    } finally {
+      setSavingStatus(false);
     }
   };
 
-  const confirmDelete = (entry) => {
-    toast(`Delete enquiry from ${entry?.fullName || "this contact"}?`, {
-      description: "This action cannot be undone.",
-      action: {
-        label: "Delete",
-        onClick: () => performDelete(entry),
-      },
-      cancel: {
-        label: "Cancel",
-        onClick: () => {},
-      },
-    });
+  const askStatusChange = (entry, nextStatus) => {
+    if (nextStatus === entry?.status) return;
+    setPendingChange({ entry, nextStatus });
   };
 
-  /* ------------------------------------------------------------------------ */
-  /* Stats                                                                    */
-  /* ------------------------------------------------------------------------ */
-
-  const membershipCount = enquiries.filter((item) => isMembership(item?.requestType)).length;
-
-  const generalCount = enquiries.filter((item) => !isMembership(item?.requestType)).length;
-
-  /* ------------------------------------------------------------------------ */
   /* Render                                                                   */
   /* ------------------------------------------------------------------------ */
 
@@ -383,27 +349,30 @@ export function EnquiryManagement() {
         {/* Mini Stats                                                        */}
         {/* ---------------------------------------------------------------- */}
 
-        <div className="grid grid-cols-2 border-t border-slate-100 sm:grid-cols-3">
-          <div className="border-r border-slate-100 px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              All Enquiries
-            </p>
-
-            <p className="mt-1 text-lg font-bold text-slate-900">{enquiries.length}</p>
+        <div className="grid grid-cols-2 border-t border-slate-100 sm:grid-cols-5">
+          <div className="border-r border-slate-100 px-4 py-3 last:border-r-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">All</p>
+            <p className="mt-1 text-lg font-bold text-slate-900">{stats.total}</p>
           </div>
-
-          <div className="border-r-0 px-4 py-3 sm:border-r sm:border-slate-100">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Membership
-            </p>
-
-            <p className="mt-1 text-lg font-bold text-red-700">{membershipCount}</p>
+          <div className="border-r border-slate-100 px-4 py-3 last:border-r-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">New</p>
+            <p className="mt-1 text-lg font-bold text-blue-700">{stats.NEW}</p>
           </div>
-
-          <div className="hidden px-4 py-3 sm:block">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">General</p>
-
-            <p className="mt-1 text-lg font-bold text-slate-700">{generalCount}</p>
+          <div className="border-r border-slate-100 px-4 py-3 last:border-r-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              In Progress
+            </p>
+            <p className="mt-1 text-lg font-bold text-amber-700">{stats.IN_PROGRESS}</p>
+          </div>
+          <div className="border-r border-slate-100 px-4 py-3 last:border-r-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Resolved
+            </p>
+            <p className="mt-1 text-lg font-bold text-emerald-700">{stats.RESOLVED}</p>
+          </div>
+          <div className="border-r border-slate-100 px-4 py-3 last:border-r-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Closed</p>
+            <p className="mt-1 text-lg font-bold text-slate-600">{stats.CLOSED}</p>
           </div>
         </div>
       </div>
@@ -417,16 +386,22 @@ export function EnquiryManagement() {
           {/* Type Filter */}
 
           <div className="flex w-full flex-col gap-1.5 sm:w-auto sm:flex-row sm:items-center">
-            <span className="text-xs font-bold text-slate-500">Type</span>
+            <span className="text-xs font-bold text-slate-500">Status</span>
 
             <select
-              value={typeFilter}
-              onChange={(event) => setTypeFilter(event.target.value)}
+              value={statusFilter}
+              onChange={(event) => {
+                setStatusFilter(event.target.value);
+                setPage(1);
+              }}
               className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none transition-all hover:border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-100 sm:w-44"
             >
-              <option value="all">All Enquiries</option>
-              <option value="membership">Membership</option>
-              <option value="general">General Enquiry</option>
+              <option value="all">All Statuses</option>
+              {STATUSES.map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -436,16 +411,16 @@ export function EnquiryManagement() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
             <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
               placeholder="Search name, mobile, email..."
               className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-xs font-medium text-slate-700 outline-none transition-all placeholder:text-slate-400 hover:border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-100"
             />
 
-            {search && (
+            {searchInput && (
               <button
                 type="button"
-                onClick={() => setSearch("")}
+                onClick={() => setSearchInput("")}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-700"
                 aria-label="Clear search"
               >
@@ -517,7 +492,7 @@ export function EnquiryManagement() {
                         </p>
                       </div>
 
-                      <TypeBadge value={entry?.requestType} />
+                      <StatusBadge value={entry?.status} />
                     </div>
 
                     {/* Card Body */}
@@ -576,14 +551,10 @@ export function EnquiryManagement() {
                         View Details
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => confirmDelete(entry)}
-                        className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-red-50 px-3 text-xs font-bold text-red-700 transition-all hover:bg-red-700 hover:text-white"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span className="hidden xs:inline">Delete</span>
-                      </button>
+                      <StatusSelect
+                        value={entry?.status || "NEW"}
+                        onChange={(next) => askStatusChange(entry, next)}
+                      />
                     </div>
                   </article>
                 );
@@ -612,7 +583,7 @@ export function EnquiryManagement() {
                       </th>
 
                       <th className="px-4 py-3 font-bold uppercase tracking-wide text-slate-500">
-                        Type
+                        Status
                       </th>
 
                       <th className="px-4 py-3 font-bold uppercase tracking-wide text-slate-500">
@@ -672,10 +643,10 @@ export function EnquiryManagement() {
                             </span>
                           </td>
 
-                          {/* Type */}
+                          {/* Status */}
 
                           <td className="px-4 py-3.5">
-                            <TypeBadge value={entry?.requestType} />
+                            <StatusBadge value={entry?.status} />
                           </td>
 
                           {/* Date */}
@@ -699,15 +670,10 @@ export function EnquiryManagement() {
                                 View
                               </button>
 
-                              <button
-                                type="button"
-                                onClick={() => confirmDelete(entry)}
-                                className="inline-flex h-8 items-center justify-center rounded-lg border border-transparent px-2 text-red-600 transition-all hover:bg-red-50"
-                                aria-label="Delete enquiry"
-                                title="Delete enquiry"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
+                              <StatusSelect
+                                value={entry?.status || "NEW"}
+                                onChange={(next) => askStatusChange(entry, next)}
+                              />
                             </div>
                           </td>
                         </tr>
@@ -724,16 +690,16 @@ export function EnquiryManagement() {
         {/* Pagination                                                        */}
         {/* ---------------------------------------------------------------- */}
 
-        {!loading && filtered.length > 0 && (
+        {!loading && pagination.total > 0 && (
           <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[11px] font-medium text-slate-500">
               Showing{" "}
               <span className="font-bold text-slate-700">{(currentPage - 1) * PAGE_SIZE + 1}</span>{" "}
               –{" "}
               <span className="font-bold text-slate-700">
-                {Math.min(currentPage * PAGE_SIZE, filtered.length)}
+                {Math.min(currentPage * PAGE_SIZE, pagination.total)}
               </span>{" "}
-              of <span className="font-bold text-slate-700">{filtered.length}</span>
+              of <span className="font-bold text-slate-700">{pagination.total}</span>
             </p>
 
             <div className="flex items-center justify-between gap-2 sm:justify-end">
@@ -804,7 +770,7 @@ export function EnquiryManagement() {
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
-                <TypeBadge value={viewing?.requestType} />
+                <StatusBadge value={viewing?.status} />
 
                 <button
                   type="button"
@@ -872,16 +838,51 @@ export function EnquiryManagement() {
                 Close
               </button>
 
+              <StatusSelect
+                value={viewing?.status || "NEW"}
+                onChange={(next) => askStatusChange(viewing, next)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingChange && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => !savingStatus && setPendingChange(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 className="text-base font-bold text-slate-900">Change status?</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              {pendingChange.entry?.fullName || "This enquiry"}
+            </p>
+            <div className="mt-4 flex items-center gap-2">
+              <StatusBadge value={pendingChange.entry?.status} />
+              <ChevronRight className="h-4 w-4 text-slate-400" />
+              <StatusBadge value={pendingChange.nextStatus} />
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  confirmDelete(viewing);
-                  setViewing(null);
-                }}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-red-700 px-5 text-xs font-bold text-white transition-all hover:bg-red-800"
+                disabled={savingStatus}
+                onClick={() => setPendingChange(null)}
+                className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-50"
               >
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete Enquiry
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={savingStatus}
+                onClick={confirmStatusChange}
+                className="h-10 rounded-lg bg-red-700 px-4 text-xs font-bold text-white hover:bg-red-800 disabled:opacity-60"
+              >
+                {savingStatus ? "Saving..." : "Confirm"}
               </button>
             </div>
           </div>

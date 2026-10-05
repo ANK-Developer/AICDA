@@ -1,5 +1,13 @@
 import { baseApi, cleanParams, unwrapData } from "@/services/api/baseApi";
 
+// Sent as JSON text inside the multipart body; "[]" clears every date.
+const serializeSpecialDates = (list) =>
+  Array.isArray(list)
+    ? JSON.stringify(
+        list.filter((entry) => entry.date).map(({ id, date, note }) => ({ id, date, note })),
+      )
+    : undefined;
+
 function buildMemberFormData(member) {
   const formData = new FormData();
   const fields = {
@@ -7,8 +15,6 @@ function buildMemberFormData(member) {
     memberName: member.memberName,
     fatherName: member.fatherName,
     dateOfBirth: member.dateOfBirth,
-    specialDate: member.specialDate,
-    specialDateNote: member.specialDateNote,
     residentialAddress: member.residentialAddress,
     mobile: member.mobile,
     residentialTelephone: member.residentialTelephone,
@@ -26,6 +32,7 @@ function buildMemberFormData(member) {
     validityTo: member.validityTo,
     amount: member.amount,
     note: member.note,
+    specialDates: serializeSpecialDates(member.specialDates),
   };
 
   Object.entries(fields).forEach(([key, value]) => {
@@ -122,6 +129,35 @@ export const membersApi = baseApi.injectEndpoints({
       invalidatesTags: ["Member"],
     }),
 
+    addMemberSpecialDate: builder.mutation({
+      query: ({ id, date, note }) => ({
+        url: `/members/${id}/special-dates`,
+        method: "POST",
+        body: { date, note },
+      }),
+      transformResponse: unwrapData,
+      invalidatesTags: ["Member"],
+    }),
+
+    updateMemberSpecialDate: builder.mutation({
+      query: ({ id, dateId, date, note }) => ({
+        url: `/members/${id}/special-dates/${dateId}`,
+        method: "PUT",
+        body: { date, note },
+      }),
+      transformResponse: unwrapData,
+      invalidatesTags: ["Member"],
+    }),
+
+    deleteMemberSpecialDate: builder.mutation({
+      query: ({ id, dateId }) => ({
+        url: `/members/${id}/special-dates/${dateId}`,
+        method: "DELETE",
+      }),
+      transformResponse: unwrapData,
+      invalidatesTags: ["Member"],
+    }),
+
     deleteMember: builder.mutation({
       query: (id) => ({ url: `/members/${id}`, method: "DELETE" }),
       transformResponse: unwrapData,
@@ -142,4 +178,7 @@ export const {
   useToggleMemberStatusMutation,
   useRenewMemberMutation,
   useDeleteMemberMutation,
+  useAddMemberSpecialDateMutation,
+  useUpdateMemberSpecialDateMutation,
+  useDeleteMemberSpecialDateMutation,
 } = membersApi;

@@ -1,5 +1,6 @@
 import { withPageMeta } from "@/components/common/withPageMeta";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { CheckCircle2, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/site/PageShell";
@@ -8,13 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useSubmitEnquiryMutation } from "@/features/enquiries/enquiriesApi";
 
 const PAGE_META = [
@@ -42,6 +36,20 @@ function Page() {
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitEnquiry] = useSubmitEnquiryMutation();
+  const { hash } = useLocation();
+
+  // Enquiry links use #enquiry-form: scroll the form into view.
+  useEffect(() => {
+    if (hash !== "#enquiry-form") return undefined;
+
+    const timer = setTimeout(() => {
+      document
+        .getElementById("enquiry-form")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [hash]);
 
   const updateField = (name, value) => setForm((prev) => ({ ...prev, [name]: value }));
 
@@ -70,7 +78,10 @@ function Page() {
       title="Become a Member"
       subtitle="Apply for AICDA membership or send us a request — we'll get back to you."
     >
-      <div className="mx-auto max-w-4xl rounded-xl border border-border bg-card p-6 shadow-(--shadow-card) sm:p-8">
+      <div
+        id="enquiry-form"
+        className="mx-auto max-w-4xl scroll-mt-24 rounded-xl border border-border bg-card p-6 shadow-(--shadow-card) sm:p-8"
+      >
         {submitted ? (
           <div className="flex flex-col items-center gap-3 py-10 text-center">
             <CheckCircle2 className="h-12 w-12 text-primary" />
@@ -93,24 +104,6 @@ function Page() {
               </h2>
             </Prose>
             <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <Label htmlFor="requestType" className="mb-2 block">
-                  Request Type
-                </Label>
-                <Select
-                  value={form.requestType}
-                  onValueChange={(value) => updateField("requestType", value)}
-                >
-                  <SelectTrigger id="requestType" className="h-11">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MEMBERSHIP">Become a Member</SelectItem>
-                    <SelectItem value="GENERAL_ENQUIRY">General Enquiry</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div className="grid gap-5 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="fullName" className="mb-2 block">

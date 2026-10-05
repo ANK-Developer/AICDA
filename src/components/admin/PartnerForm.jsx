@@ -22,6 +22,7 @@ import {
   inputClass,
   textareaClass,
 } from "./directory-shared";
+import { SpecialDatesField } from "./ProfileExtras";
 
 function buildInitialForm(partner, lockedMember) {
   if (!partner) {
@@ -30,8 +31,7 @@ function buildInitialForm(partner, lockedMember) {
       partnerName: "",
       fatherName: "",
       dateOfBirth: "",
-      specialDate: "",
-      specialDateNote: "",
+      specialDates: [],
       photo: null,
       residentialAddress: "",
       mobile: "",
@@ -58,8 +58,7 @@ function buildInitialForm(partner, lockedMember) {
     partnerName: partner.partnerName || "",
     fatherName: partner.fatherName || "",
     dateOfBirth: partner.dateOfBirth ? partner.dateOfBirth.slice(0, 10) : "",
-    specialDate: partner.specialDate ? partner.specialDate.slice(0, 10) : "",
-    specialDateNote: partner.specialDateNote || "",
+    specialDates: Array.isArray(partner.specialDates) ? partner.specialDates : [],
     photo: null,
     residentialAddress: partner.residentialAddress || "",
     mobile: partner.mobile || "",
@@ -496,26 +495,6 @@ export function PartnerForm({ partner, members = [], lockedMember, onCancel, onS
             />
           </FieldRow>
 
-          {/* Special Date */}
-          <FieldRow label="Special Date">
-            <input
-              type="date"
-              value={form.specialDate}
-              onChange={(e) => updateField("specialDate", e.target.value)}
-              className={inputClass}
-            />
-          </FieldRow>
-
-          <FieldRow label="Special Date Occasion">
-            <input
-              value={form.specialDateNote}
-              onChange={(e) => updateField("specialDateNote", e.target.value)}
-              maxLength={191}
-              className={inputClass}
-              placeholder="e.g. Anniversary"
-            />
-          </FieldRow>
-
           {/* Designation */}
           <FieldRow label="Designation">
             <DesignationCombobox
@@ -537,6 +516,17 @@ export function PartnerForm({ partner, members = [], lockedMember, onCancel, onS
             </FieldRow>
           </div>
         </div>
+      </FormSection>
+
+      {/* ==================== SPECIAL DATES ==================== */}
+      <FormSection
+        title="Special Dates"
+        description="Anniversary, milestone or any other occasion."
+      >
+        <SpecialDatesField
+          value={form.specialDates}
+          onChange={(value) => updateField("specialDates", value)}
+        />
       </FormSection>
 
       {/* ==================== COMPANY DETAILS ==================== */}

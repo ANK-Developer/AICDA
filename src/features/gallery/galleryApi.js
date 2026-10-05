@@ -2,10 +2,11 @@ import { baseApi, cleanParams, unwrapData } from "@/services/api/baseApi";
 
 export const galleryApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // arg: { category?, page?, limit?, search? }
+    // arg: { category?, page?, limit?, search?, admin? }
+    // admin: true lists hidden (blocked) items too — used by the Media Library.
     getGalleryImages: builder.query({
-      query: ({ category, page, limit, search } = {}) => ({
-        url: "/gallery",
+      query: ({ category, page, limit, search, admin } = {}) => ({
+        url: admin ? "/gallery/admin" : "/gallery",
         params: cleanParams({ category, page, limit, search: search?.trim() }),
       }),
       transformResponse: (response) => {
@@ -19,9 +20,11 @@ export const galleryApi = baseApi.injectEndpoints({
     }),
 
     uploadGalleryImage: builder.mutation({
-      query: ({ file, category, title = "", description = "" }) => {
+      query: ({ file, videoUrl, category, title = "", description = "", resourceType }) => {
         const formData = new FormData();
-        formData.append("image", file);
+        if (file) formData.append("image", file);
+        if (videoUrl) formData.append("videoUrl", videoUrl);
+        if (resourceType) formData.append("resourceType", resourceType);
         formData.append("category", category);
         if (title) formData.append("title", title);
         if (description) formData.append("description", description);
@@ -32,14 +35,26 @@ export const galleryApi = baseApi.injectEndpoints({
     }),
 
     updateGalleryImage: builder.mutation({
-      query: ({ id, file, category, title, description }) => {
+      query: ({ id, file, videoUrl, category, title, description }) => {
         const formData = new FormData();
         if (file) formData.append("image", file);
+        if (videoUrl) formData.append("videoUrl", videoUrl);
         if (category) formData.append("category", category);
         if (title) formData.append("title", title);
         if (description) formData.append("description", description);
         return { url: `/gallery/${id}`, method: "PATCH", body: formData };
       },
+      transformResponse: unwrapData,
+      invalidatesTags: ["Gallery"],
+    }),
+
+    // Block (isActive: false) hides the item on the public site; unblock shows it again.
+    setGalleryVisibility: builder.mutation({
+      query: ({ id, isActive }) => ({
+        url: `/gallery/${id}/visibility`,
+        method: "PATCH",
+        body: { isActive },
+      }),
       transformResponse: unwrapData,
       invalidatesTags: ["Gallery"],
     }),
@@ -57,5 +72,6 @@ export const {
   useLazyGetGalleryImagesQuery,
   useUploadGalleryImageMutation,
   useUpdateGalleryImageMutation,
+  useSetGalleryVisibilityMutation,
   useDeleteGalleryImageMutation,
 } = galleryApi;

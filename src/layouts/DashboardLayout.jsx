@@ -31,7 +31,7 @@ const navigation = [
   { label: "Important Dates", icon: CalendarDays, to: "/admin/important-dates" },
   { label: "Reset Directory", icon: RotateCcw, to: "/admin/reset-directory" },
   // { label: "Reset Management", icon: RotateCw, to: "/admin/reset-management" },
-  { label: "Image", icon: Image, to: "/admin/image" },
+  { label: "Media Library", icon: Image, to: "/admin/image" },
   // { label: "Expired Members", icon: AlertTriangle, to: "/admin/expired-members" },
   // { label: "Our Staff", icon: UserCog, to: "/admin/our-staff" },
   // { label: "Complaint", icon: MessageSquareWarning, to: "/admin/complaint" },

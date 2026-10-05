@@ -7,7 +7,8 @@ import { GallerySkeleton } from "@/components/site/GallerySkeleton";
 import { PageShell } from "@/components/site/PageShell";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useGalleryImages } from "@/features/gallery/useGalleryImages";
-import { isVideoUrl } from "@/utils/media";
+import { getVideoThumbnail, isVideoMedia } from "@/utils/media";
+import { MediaVideo } from "@/components/common/MediaVideo";
 import { getMediaUrl } from "@/lib/config";
 
 const PAGE_META = [
@@ -57,7 +58,7 @@ function Page() {
       return true;
     }
 
-    const video = isVideoUrl(imageUrl(image));
+    const video = isVideoMedia(image, imageUrl(image));
 
     return typeFilter === "video" ? video : !video;
   });
@@ -113,7 +114,8 @@ function Page() {
         <div className="grid grid-cols-1 px-5 md:px-0 gap-6 sm:grid-cols-3 lg:grid-cols-3">
           {pageImages.map((image, localIndex) => {
             const url = imageUrl(image);
-            const video = isVideoUrl(url);
+            const video = isVideoMedia(image, url);
+            const thumb = video ? getVideoThumbnail(url) : "";
 
             return (
               <button
@@ -123,7 +125,7 @@ function Page() {
                 className="group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-card shadow-[var(--shadow-card)]"
               >
                 {/* Image / Video */}
-                {video ? (
+                {video && !thumb ? (
                   <video
                     src={url}
                     muted
@@ -132,7 +134,7 @@ function Page() {
                   />
                 ) : (
                   <img
-                    src={url}
+                    src={thumb || url}
                     alt={image?.description || image?.title || "Gallery image"}
                     className="aspect-[3/4] h-55 w-full object-fill transition-transform duration-300 group-hover:scale-105"
                   />
@@ -203,11 +205,9 @@ function Page() {
           {current && (
             <div className="relative">
               {/* Main Media */}
-              {isVideoUrl(imageUrl(current)) ? (
-                <video
-                  key={imageUrl(current)}
-                  src={imageUrl(current)}
-                  controls
+              {isVideoMedia(current, imageUrl(current)) ? (
+                <MediaVideo
+                  url={imageUrl(current)}
                   autoPlay
                   className="max-h-[80vh] w-full bg-black"
                 />

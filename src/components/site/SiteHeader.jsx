@@ -59,11 +59,11 @@ export function SiteHeader() {
             </span>
             <span className="opacity-70">RTO Form | Registration No. - S-55924/2006</span>
             <Link
-              to="/become-member"
+              to="/become-member#enquiry-form"
               style={becomeMemberStyle}
               className="rounded-md bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary-deep"
             >
-              Become Member
+              Enquiry
             </Link>
           </div>
           <button className="lg:hidden p-2" onClick={() => setOpen(!open)} aria-label="Menu">
@@ -92,12 +92,12 @@ export function SiteHeader() {
           <nav className="lg:hidden">
             <div className="px-2 pt-2 lg:hidden">
               <Link
-                to="/become-member"
+                to="/become-member#enquiry-form"
                 onClick={() => setOpen(false)}
                 style={becomeMemberStyleLight}
                 className="block rounded-md bg-primary-foreground px-3 py-2 text-center text-sm font-semibold text-primary hover:opacity-90"
               >
-                Become Member
+                Enquiry
               </Link>
             </div>
             <ul className="px-2 py-2">

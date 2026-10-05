@@ -1,4 +1,7 @@
 import {
+  useAddMemberSpecialDateMutation,
+  useUpdateMemberSpecialDateMutation,
+  useDeleteMemberSpecialDateMutation,
   useLazyGetMemberDetailsQuery,
   useRenewMemberMutation,
 } from "@/features/members/membersApi";
@@ -47,6 +50,7 @@ import {
 
 import { MemberPrintableForm } from "./MemberPrintableForm";
 import { PartnerForm } from "./PartnerForm";
+import { formatCalendarDate, ProfileStatusThumb, SpecialDatesSection } from "./ProfileExtras";
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
@@ -182,6 +186,9 @@ function DetailsSkeleton() {
 export function MemberDetails({ slug }) {
   const getMemberDetails = useLazyCall(useLazyGetMemberDetailsQuery);
   const renewMember = useMutate(useRenewMemberMutation);
+  const addSpecialDate = useMutate(useAddMemberSpecialDateMutation);
+  const updateSpecialDate = useMutate(useUpdateMemberSpecialDateMutation);
+  const deleteSpecialDate = useMutate(useDeleteMemberSpecialDateMutation);
   const [member, setMember] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -295,6 +302,26 @@ export function MemberDetails({ slug }) {
     } catch {
       // loadMember already handles the error state.
     }
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /* Special Dates                                                            */
+  /* ------------------------------------------------------------------------ */
+
+  // The API answers with the member's full, updated special-dates array.
+  const handleAddSpecialDate = async ({ date, note }) => {
+    const specialDates = await addSpecialDate({ id: member.id, date, note });
+    setMember((current) => ({ ...current, specialDates }));
+  };
+
+  const handleEditSpecialDate = async (dateId, { date, note }) => {
+    const specialDates = await updateSpecialDate({ id: member.id, dateId, date, note });
+    setMember((current) => ({ ...current, specialDates }));
+  };
+
+  const handleDeleteSpecialDate = async (dateId) => {
+    const specialDates = await deleteSpecialDate({ id: member.id, dateId });
+    setMember((current) => ({ ...current, specialDates }));
   };
 
   /* ------------------------------------------------------------------------ */
@@ -528,7 +555,9 @@ export function MemberDetails({ slug }) {
           {/* MEMBER PROFILE                                                */}
           {/* ============================================================ */}
 
-          <aside className="h-fit rounded-[5px] border border-slate-200 bg-white p-5 shadow-sm">
+          <aside className="relative h-fit rounded-[5px] border border-slate-200 bg-white p-5 shadow-sm">
+            <ProfileStatusThumb active={isEffectivelyActive} />
+
             <div className="flex flex-col items-center">
               {member.photo ? (
                 <div className="overflow-hidden rounded-[5px] border border-slate-200 bg-slate-50">
@@ -648,6 +677,12 @@ export function MemberDetails({ slug }) {
                 />
 
                 <InfoRow
+                  label="Date of Birth"
+                  value={formatCalendarDate(member.dateOfBirth)}
+                  icon={CalendarDays}
+                />
+
+                <InfoRow
                   label="Valid Until"
                   value={
                     formatDate(member.validityTo)
@@ -660,6 +695,13 @@ export function MemberDetails({ slug }) {
                 />
               </div>
             </div>
+
+            <SpecialDatesSection
+              specialDates={member.specialDates}
+              onAdd={handleAddSpecialDate}
+              onEdit={handleEditSpecialDate}
+              onDelete={handleDeleteSpecialDate}
+            />
 
             {/* ---------------------------------------------------------- */}
             {/* Partners                                                    */}

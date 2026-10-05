@@ -1,6 +1,6 @@
 import { withPageMeta } from "@/components/common/withPageMeta";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, Loader2, Share2, ThumbsUp, User } from "lucide-react";
+import { Download, Loader2, Share2, ThumbsDown, ThumbsUp, User } from "lucide-react";
 import { toCanvas } from "html-to-image";
 import { toast } from "sonner";
 import { PageShell } from "@/components/site/PageShell";
@@ -44,6 +44,7 @@ function mapMemberToBearer(member) {
     memberId: member.memberId || "",
     validityFrom: member.validityFrom || "",
     validityTo: member.validityTo || "",
+    active: Boolean(member.isActive && isValidityActive(member.validityTo)),
     photo: member.photo ? getMediaUrl(member.photo) : null,
   };
 }
@@ -67,6 +68,7 @@ function mapPartnerToBearer(partner) {
     dateOfJoining: formatDate(partner.dateOfJoining),
     validityFrom: formatDate(partner.validityFrom),
     validityTo: formatDate(partner.validityTo),
+    active: Boolean(partner.isActive && isValidityActive(partner.validityTo)),
     photo: partner.photo ? getMediaUrl(partner.photo) : null,
   };
 }
@@ -271,15 +273,19 @@ function OfficeBearerSlide({ bearer }) {
             </button>
           </div>
         </div>
-        {isValidityActive(bearer.validityTo) && (
-          <span
-            title="Membership valid"
-            aria-label="Membership valid"
-            className="absolute bottom-3 right-3 flex items-center justify-center text-emerald-500"
-          >
+        <span
+          title={bearer.active ? "Active" : "Inactive"}
+          aria-label={bearer.active ? "Active" : "Inactive"}
+          className={`absolute bottom-3 right-3 flex items-center justify-center ${
+            bearer.active ? "text-emerald-500" : "text-red-500"
+          }`}
+        >
+          {bearer.active ? (
             <ThumbsUp className="h-8 w-8 fill-emerald-500" />
-          </span>
-        )}
+          ) : (
+            <ThumbsDown className="h-8 w-8 fill-red-500" />
+          )}
+        </span>
         <div className="mt-3 space-y-2">
           <DetailRow label="Name" value={bearer.name} />
           <DetailRow label="ID" value={bearer.memberId} />

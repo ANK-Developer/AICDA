@@ -1,5 +1,13 @@
 import { baseApi, cleanParams, unwrapData } from "@/services/api/baseApi";
 
+// Sent as JSON text inside the multipart body; "[]" clears every date.
+const serializeSpecialDates = (list) =>
+  Array.isArray(list)
+    ? JSON.stringify(
+        list.filter((entry) => entry.date).map(({ id, date, note }) => ({ id, date, note })),
+      )
+    : undefined;
+
 function buildPartnerFormData(partner) {
   const formData = new FormData();
   const fields = {
@@ -7,8 +15,6 @@ function buildPartnerFormData(partner) {
     partnerName: partner.partnerName,
     fatherName: partner.fatherName,
     dateOfBirth: partner.dateOfBirth,
-    specialDate: partner.specialDate,
-    specialDateNote: partner.specialDateNote,
     residentialAddress: partner.residentialAddress,
     mobile: partner.mobile,
     residentialTelephone: partner.residentialTelephone,
@@ -26,6 +32,7 @@ function buildPartnerFormData(partner) {
     validityTo: partner.validityTo,
     amount: partner.amount,
     note: partner.note,
+    specialDates: serializeSpecialDates(partner.specialDates),
   };
 
   Object.entries(fields).forEach(([key, value]) => {
@@ -116,6 +123,35 @@ export const partnersApi = baseApi.injectEndpoints({
       invalidatesTags: ["Partner"],
     }),
 
+    addPartnerSpecialDate: builder.mutation({
+      query: ({ id, date, note }) => ({
+        url: `/partners/${id}/special-dates`,
+        method: "POST",
+        body: { date, note },
+      }),
+      transformResponse: unwrapData,
+      invalidatesTags: ["Partner"],
+    }),
+
+    updatePartnerSpecialDate: builder.mutation({
+      query: ({ id, dateId, date, note }) => ({
+        url: `/partners/${id}/special-dates/${dateId}`,
+        method: "PUT",
+        body: { date, note },
+      }),
+      transformResponse: unwrapData,
+      invalidatesTags: ["Partner"],
+    }),
+
+    deletePartnerSpecialDate: builder.mutation({
+      query: ({ id, dateId }) => ({
+        url: `/partners/${id}/special-dates/${dateId}`,
+        method: "DELETE",
+      }),
+      transformResponse: unwrapData,
+      invalidatesTags: ["Partner"],
+    }),
+
     deletePartner: builder.mutation({
       query: (id) => ({ url: `/partners/${id}`, method: "DELETE" }),
       transformResponse: unwrapData,
@@ -136,4 +172,7 @@ export const {
   useTogglePartnerStatusMutation,
   useRenewPartnerMutation,
   useDeletePartnerMutation,
+  useAddPartnerSpecialDateMutation,
+  useUpdatePartnerSpecialDateMutation,
+  useDeletePartnerSpecialDateMutation,
 } = partnersApi;

@@ -1,3 +1,11 @@
+import {
+  useDeleteGalleryImageMutation,
+  useLazyGetGalleryImagesQuery,
+  useUpdateGalleryImageMutation,
+  useUploadGalleryImageMutation,
+} from "@/features/gallery/galleryApi";
+import { isVideoFile, isVideoUrl } from "@/utils/media";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -18,15 +26,6 @@ import {
 import { toast } from "react-toastify";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMediaUrl } from "@/lib/config";
-
-import {
-  deleteGalleryImage,
-  getGalleryImages,
-  isVideoFile,
-  isVideoUrl,
-  updateGalleryImage,
-  uploadGalleryImage,
-} from "@/lib/gallery-api";
 
 import { inputClass } from "./directory-shared";
 
@@ -296,6 +295,8 @@ function MediaViewModal({ image, onClose }) {
 /* -------------------------------------------------------------------------- */
 
 function GalleryForm({ image, onClose, onSaved }) {
+  const updateGalleryImage = useMutate(useUpdateGalleryImageMutation);
+  const uploadGalleryImage = useMutate(useUploadGalleryImageMutation);
   const [category, setCategory] = useState(image?.category || "ASSOCIATION");
 
   const [description, setDescription] = useState(image?.description || "");
@@ -375,7 +376,8 @@ function GalleryForm({ image, onClose, onSaved }) {
 
     try {
       if (image) {
-        await updateGalleryImage(imageId(image), {
+        await updateGalleryImage({
+          id: imageId(image),
           file,
           category,
           description: description.trim(),
@@ -383,7 +385,7 @@ function GalleryForm({ image, onClose, onSaved }) {
 
         toast.success("Gallery media updated successfully.");
       } else {
-        await uploadGalleryImage(file, category, "", description.trim());
+        await uploadGalleryImage({ file, category, description: description.trim() });
 
         toast.success("Image uploaded successfully.");
       }
@@ -884,6 +886,8 @@ function MediaThumbnail({ image, size = "normal" }) {
 /* -------------------------------------------------------------------------- */
 
 export function GalleryManagement() {
+  const getGalleryImages = useLazyCall(useLazyGetGalleryImagesQuery);
+  const deleteGalleryImage = useMutate(useDeleteGalleryImageMutation);
   const [images, setImages] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -911,7 +915,7 @@ export function GalleryManagement() {
     setError("");
 
     try {
-      const result = await getGalleryImages(category);
+      const result = await getGalleryImages({ category });
 
       const gallery = Array.isArray(result?.gallery) ? result.gallery : [];
 
@@ -928,7 +932,7 @@ export function GalleryManagement() {
     } finally {
       setLoading(false);
     }
-  }, [category]);
+  }, [category, getGalleryImages]);
 
   useEffect(() => {
     loadImages();

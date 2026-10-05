@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { categoryNav } from "./nav-data";
 

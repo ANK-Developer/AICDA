@@ -1,3 +1,9 @@
+import {
+  useCreateSuperAdminMutation,
+  useLazyGetSuperAdminsQuery,
+  useUpdateSuperAdminStatusMutation,
+} from "@/features/superAdmins/superAdminsApi";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useState } from "react";
 import {
   Plus,
@@ -16,12 +22,13 @@ import {
 
 import { toast } from "react-toastify";
 
-import { createSuperAdmin, getSuperAdmins, updateSuperAdminStatus } from "@/lib/super-admin-api";
-
 import { FieldRow, inputClass } from "./directory-shared";
 import { ChangePasswordModal } from "./ChangePasswordModal";
 
 export function SuperAdminsManagement() {
+  const getSuperAdmins = useLazyCall(useLazyGetSuperAdminsQuery);
+  const createSuperAdmin = useMutate(useCreateSuperAdminMutation);
+  const updateSuperAdminStatus = useMutate(useUpdateSuperAdminStatusMutation);
   const [showForm, setShowForm] = useState(false);
   const [superAdmins, setSuperAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -138,9 +145,7 @@ export function SuperAdminsManagement() {
 
     try {
       // Same API and same payload logic
-      await updateSuperAdminStatus(id, {
-        isActive: newStatus,
-      });
+      await updateSuperAdminStatus({ id, payload: { isActive: newStatus } });
 
       toast.success(
         newStatus ? "Super Admin activated successfully." : "Super Admin deactivated successfully.",
@@ -613,73 +618,73 @@ export function SuperAdminsManagement() {
       {/* =====================================================
           CREATE SUPER ADMIN MODAL
       ====================================================== */}
-     {showForm && (
-  <div
-    className="
+      {showForm && (
+        <div
+          className="
       fixed inset-0 z-50 flex items-center justify-center
       bg-slate-950/60 p-3 backdrop-blur-[2px]
       sm:p-5
     "
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="create-super-admin-title"
-  >
-    <form
-      onSubmit={handleCreate}
-      className="
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-super-admin-title"
+        >
+          <form
+            onSubmit={handleCreate}
+            className="
         flex max-h-[95vh] w-full max-w-2xl
         flex-col overflow-hidden
         rounded-2xl bg-white shadow-2xl
       "
-    >
-      {/* ================= HEADER ================= */}
-      <div
-        className="
+          >
+            {/* ================= HEADER ================= */}
+            <div
+              className="
           flex shrink-0 items-center justify-between
           border-b border-slate-200
           bg-white px-5 py-5
           sm:px-6 sm:py-6
         "
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="
               flex h-11 w-11 shrink-0
               items-center justify-center
               rounded-xl bg-red-50
               text-red-700
             "
-          >
-            <ShieldCheck className="h-5 w-5" />
-          </div>
+                >
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
 
-          <div>
-            <h3
-              id="create-super-admin-title"
-              className="
+                <div>
+                  <h3
+                    id="create-super-admin-title"
+                    className="
                 text-lg font-bold
                 text-slate-900
               "
-            >
-              Create Super Admin
-            </h3>
+                  >
+                    Create Super Admin
+                  </h3>
 
-            <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-              Add a new administrator account
-            </p>
-          </div>
-        </div>
+                  <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+                    Add a new administrator account
+                  </p>
+                </div>
+              </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            if (!saving) {
-              setShowForm(false);
-            }
-          }}
-          disabled={saving}
-          aria-label="Close"
-          className="
+              <button
+                type="button"
+                onClick={() => {
+                  if (!saving) {
+                    setShowForm(false);
+                  }
+                }}
+                disabled={saving}
+                aria-label="Close"
+                className="
             flex h-9 w-9 shrink-0
             items-center justify-center
             rounded-lg text-slate-400
@@ -688,30 +693,30 @@ export function SuperAdminsManagement() {
             disabled:cursor-not-allowed
             disabled:opacity-50
           "
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
 
-      {/* ================= FORM BODY ================= */}
-      <div className="flex-1 overflow-y-auto">
-        <div
-          className="
+            {/* ================= FORM BODY ================= */}
+            <div className="flex-1 overflow-y-auto">
+              <div
+                className="
             grid grid-cols-1 gap-6
             p-5
             sm:grid-cols-2
             sm:p-7
           "
-        >
-          {/* FIRST NAME */}
-          <FieldRow label="First name" required>
-            <input
-              name="firstName"
-              type="text"
-              required
-              autoComplete="given-name"
-              placeholder="Enter first name"
-              className={`
+              >
+                {/* FIRST NAME */}
+                <FieldRow label="First name" required>
+                  <input
+                    name="firstName"
+                    type="text"
+                    required
+                    autoComplete="given-name"
+                    placeholder="Enter first name"
+                    className={`
                 ${inputClass}
                 h-12 w-full
                 rounded-lg
@@ -723,18 +728,18 @@ export function SuperAdminsManagement() {
                 focus:ring-2
                 focus:ring-red-100
               `}
-            />
-          </FieldRow>
+                  />
+                </FieldRow>
 
-          {/* LAST NAME */}
-          <FieldRow label="Last name" required>
-            <input
-              name="lastName"
-              type="text"
-              required
-              autoComplete="family-name"
-              placeholder="Enter last name"
-              className={`
+                {/* LAST NAME */}
+                <FieldRow label="Last name" required>
+                  <input
+                    name="lastName"
+                    type="text"
+                    required
+                    autoComplete="family-name"
+                    placeholder="Enter last name"
+                    className={`
                 ${inputClass}
                 h-12 w-full
                 rounded-lg
@@ -746,29 +751,29 @@ export function SuperAdminsManagement() {
                 focus:ring-2
                 focus:ring-red-100
               `}
-            />
-          </FieldRow>
+                  />
+                </FieldRow>
 
-          {/* EMAIL */}
-          <FieldRow label="Email address" required>
-            <div className="relative">
-              <Mail
-                className="
+                {/* EMAIL */}
+                <FieldRow label="Email address" required>
+                  <div className="relative">
+                    <Mail
+                      className="
                   pointer-events-none
                   absolute left-3.5 top-1/2
                   h-4 w-4
                   -translate-y-1/2
                   text-slate-400
                 "
-              />
+                    />
 
-              <input
-                name="email"
-                type="email"
-                required
-                autoComplete="email"
-                placeholder="admin@example.com"
-                className={`
+                    <input
+                      name="email"
+                      type="email"
+                      required
+                      autoComplete="email"
+                      placeholder="admin@example.com"
+                      className={`
                   ${inputClass}
                   h-12 w-full
                   rounded-lg
@@ -780,30 +785,30 @@ export function SuperAdminsManagement() {
                   focus:ring-2
                   focus:ring-red-100
                 `}
-              />
-            </div>
-          </FieldRow>
+                    />
+                  </div>
+                </FieldRow>
 
-          {/* PHONE */}
-          <FieldRow label="Phone number" required>
-            <div className="relative">
-              <Phone
-                className="
+                {/* PHONE */}
+                <FieldRow label="Phone number" required>
+                  <div className="relative">
+                    <Phone
+                      className="
                   pointer-events-none
                   absolute left-3.5 top-1/2
                   h-4 w-4
                   -translate-y-1/2
                   text-slate-400
                 "
-              />
+                    />
 
-              <input
-                name="phone"
-                type="tel"
-                required
-                autoComplete="tel"
-                placeholder="Enter phone number"
-                className={`
+                    <input
+                      name="phone"
+                      type="tel"
+                      required
+                      autoComplete="tel"
+                      placeholder="Enter phone number"
+                      className={`
                   ${inputClass}
                   h-12 w-full
                   rounded-lg
@@ -815,32 +820,32 @@ export function SuperAdminsManagement() {
                   focus:ring-2
                   focus:ring-red-100
                 `}
-              />
-            </div>
-          </FieldRow>
+                    />
+                  </div>
+                </FieldRow>
 
-          {/* PASSWORD */}
-          <div className="sm:col-span-2">
-            <FieldRow label="Password" required>
-              <div className="relative">
-                <LockKeyhole
-                  className="
+                {/* PASSWORD */}
+                <div className="sm:col-span-2">
+                  <FieldRow label="Password" required>
+                    <div className="relative">
+                      <LockKeyhole
+                        className="
                     pointer-events-none
                     absolute left-3.5 top-1/2
                     h-4 w-4
                     -translate-y-1/2
                     text-slate-400
                   "
-                />
+                      />
 
-                <input
-                  name="password"
-                  type="password"
-                  required
-                  minLength={6}
-                  autoComplete="new-password"
-                  placeholder="Enter a secure password"
-                  className={`
+                      <input
+                        name="password"
+                        type="password"
+                        required
+                        minLength={6}
+                        autoComplete="new-password"
+                        placeholder="Enter a secure password"
+                        className={`
                     ${inputClass}
                     h-12 w-full
                     rounded-lg
@@ -852,20 +857,20 @@ export function SuperAdminsManagement() {
                     focus:ring-2
                     focus:ring-red-100
                   `}
-                />
+                      />
+                    </div>
+
+                    <p className="mt-2 text-xs text-slate-400">
+                      Password must be at least 6 characters.
+                    </p>
+                  </FieldRow>
+                </div>
               </div>
+            </div>
 
-              <p className="mt-2 text-xs text-slate-400">
-                Password must be at least 6 characters.
-              </p>
-            </FieldRow>
-          </div>
-        </div>
-      </div>
-
-      {/* ================= FOOTER ================= */}
-      <div
-        className="
+            {/* ================= FOOTER ================= */}
+            <div
+              className="
           flex shrink-0
           flex-col-reverse gap-3
           border-t border-slate-200
@@ -875,13 +880,13 @@ export function SuperAdminsManagement() {
           sm:justify-end
           sm:px-7 sm:py-5
         "
-      >
-        {/* CANCEL */}
-        <button
-          type="button"
-          onClick={() => setShowForm(false)}
-          disabled={saving}
-          className="
+            >
+              {/* CANCEL */}
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                disabled={saving}
+                className="
             h-11 w-full
             rounded-lg
             border border-slate-200
@@ -895,15 +900,15 @@ export function SuperAdminsManagement() {
             disabled:opacity-50
             sm:w-auto
           "
-        >
-          Cancel
-        </button>
+              >
+                Cancel
+              </button>
 
-        {/* CREATE */}
-        <button
-          type="submit"
-          disabled={saving}
-          className="
+              {/* CREATE */}
+              <button
+                type="submit"
+                disabled={saving}
+                className="
             inline-flex h-11 w-full
             items-center justify-center
             gap-2 rounded-lg
@@ -919,19 +924,15 @@ export function SuperAdminsManagement() {
             disabled:opacity-60
             sm:w-auto
           "
-        >
-          {saving && (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          )}
+              >
+                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
 
-          {saving
-            ? "Creating..."
-            : "Create Super Admin"}
-        </button>
-      </div>
-    </form>
-  </div>
-)}
+                {saving ? "Creating..." : "Create Super Admin"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* =====================================================
           STATUS CONFIRMATION MODAL

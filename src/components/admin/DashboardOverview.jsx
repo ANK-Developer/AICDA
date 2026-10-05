@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { Link } from "@tanstack/react-router";
+import { AppLink as Link } from "@/components/common/AppLink";
 
 import {
   AlertCircle,
@@ -22,9 +22,12 @@ import {
 
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { getMembers } from "@/lib/member-api";
-import { getEnquiries } from "@/lib/enquiry-api";
-import { getImportantDates, getUpcomingBirthdays } from "@/lib/important-date-api";
+import { useLazyGetMembersQuery } from "@/features/members/membersApi";
+import { useLazyGetEnquiriesQuery } from "@/features/enquiries/enquiriesApi";
+import {
+  useLazyGetImportantDatesQuery,
+  useLazyGetUpcomingBirthdaysQuery,
+} from "@/features/importantDates/importantDatesApi";
 
 import { isExpired, isProfileIncomplete, isWithinDays } from "./directory-shared";
 
@@ -244,6 +247,10 @@ function SectionHeader({ icon: Icon, title, link }) {
 /* -------------------------------------------------------------------------- */
 
 export function DashboardOverview() {
+  const [fetchMembers] = useLazyGetMembersQuery();
+  const [fetchEnquiries] = useLazyGetEnquiriesQuery();
+  const [fetchImportantDates] = useLazyGetImportantDatesQuery();
+  const [fetchUpcomingBirthdays] = useLazyGetUpcomingBirthdaysQuery();
   const [stats, setStats] = useState(null);
 
   const [recentEnquiries, setRecentEnquiries] = useState([]);
@@ -260,10 +267,10 @@ export function DashboardOverview() {
     setError("");
 
     Promise.all([
-      getMembers({ limit: LARGE_BATCH }),
-      getEnquiries(),
-      getImportantDates(),
-      getUpcomingBirthdays(),
+      fetchMembers({ limit: LARGE_BATCH }, true).unwrap(),
+      fetchEnquiries(undefined, true).unwrap(),
+      fetchImportantDates(undefined, true).unwrap(),
+      fetchUpcomingBirthdays(undefined, true).unwrap(),
     ])
       .then(([membersResult, enquiriesResult, importantDates, birthdays]) => {
         if (!mounted) return;
@@ -337,7 +344,7 @@ export function DashboardOverview() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [fetchMembers, fetchEnquiries, fetchImportantDates, fetchUpcomingBirthdays]);
 
   /* ---------------------------------------------------------------------- */
   /* Member Cards                                                           */

@@ -1,5 +1,10 @@
+import {
+  useLazyGetMemberDetailsQuery,
+  useRenewMemberMutation,
+} from "@/features/members/membersApi";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { AppLink as Link } from "@/components/common/AppLink";
 import {
   ArrowLeft,
   CalendarDays,
@@ -26,7 +31,6 @@ import { toast } from "sonner";
 import { getMediaUrl } from "@/lib/config";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import { getMemberDetails, renewMember } from "@/lib/member-api";
 
 import {
   buildPartnerSlug,
@@ -85,6 +89,7 @@ function formatDate(value) {
 function sanitizeFileName(value, fallback) {
   const name = String(value || fallback)
     .trim()
+    // eslint-disable-next-line no-control-regex -- strips control characters from file names
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
     .replace(/\s+/g, "_");
 
@@ -175,6 +180,8 @@ function DetailsSkeleton() {
 /* -------------------------------------------------------------------------- */
 
 export function MemberDetails({ slug }) {
+  const getMemberDetails = useLazyCall(useLazyGetMemberDetailsQuery);
+  const renewMember = useMutate(useRenewMemberMutation);
   const [member, setMember] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -245,7 +252,7 @@ export function MemberDetails({ slug }) {
     return () => {
       mounted = false;
     };
-  }, [slug]);
+  }, [slug, getMemberDetails]);
 
   /* ------------------------------------------------------------------------ */
   /* Derived Values                                                           */
@@ -386,7 +393,8 @@ export function MemberDetails({ slug }) {
     setRenewError("");
 
     try {
-      await renewMember(member.id, {
+      await renewMember({
+        id: member.id,
         validityTo: renewDate,
         amount: renewAmount !== "" ? Number(renewAmount) : undefined,
       });

@@ -1,13 +1,21 @@
+import {
+  useLazyGetMembersQuery,
+  useRenewMemberMutation,
+  useUpdateMemberMutation,
+} from "@/features/members/membersApi";
+import {
+  useLazyGetPartnersQuery,
+  useRenewPartnerMutation,
+  useUpdatePartnerMutation,
+} from "@/features/partners/partnersApi";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useState } from "react";
 
-import { Link } from "@tanstack/react-router";
+import { AppLink as Link } from "@/components/common/AppLink";
 
 import { Eye, Handshake, RefreshCw, Search, Tag, Users, X, LoaderCircle, User } from "lucide-react";
 import { toast } from "react-toastify";
 
-import { getMembers, renewMember, updateMember } from "@/lib/member-api";
-
-import { getPartners, renewPartner, updatePartner } from "@/lib/partner-api";
 import { getMediaUrl } from "../../lib/config";
 
 import {
@@ -186,6 +194,12 @@ function ResetDirectoryTableSkeleton() {
 ========================================================= */
 
 export function ResetDirectory() {
+  const getMembers = useLazyCall(useLazyGetMembersQuery);
+  const getPartners = useLazyCall(useLazyGetPartnersQuery);
+  const renewMember = useMutate(useRenewMemberMutation);
+  const renewPartner = useMutate(useRenewPartnerMutation);
+  const updateMember = useMutate(useUpdateMemberMutation);
+  const updatePartner = useMutate(useUpdatePartnerMutation);
   const [tab, setTab] = useState("members");
 
   const [records, setRecords] = useState([]);
@@ -347,9 +361,9 @@ export function ResetDirectory() {
       };
 
       if (tab === "members") {
-        await renewMember(renewTarget.id, payload);
+        await renewMember({ id: renewTarget.id, ...payload });
       } else {
-        await renewPartner(renewTarget.id, payload);
+        await renewPartner({ id: renewTarget.id, ...payload });
       }
 
       await load();
@@ -407,9 +421,9 @@ export function ResetDirectory() {
       };
 
       if (tab === "members") {
-        await updateMember(designationTarget.id, payload);
+        await updateMember({ id: designationTarget.id, member: payload });
       } else {
-        await updatePartner(designationTarget.id, payload);
+        await updatePartner({ id: designationTarget.id, partner: payload });
       }
 
       await load();

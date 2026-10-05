@@ -1,3 +1,11 @@
+import {
+  useCreateImportantDateMutation,
+  useDeleteImportantDateMutation,
+  useLazyGetImportantDatesQuery,
+  useLazyGetUpcomingBirthdaysQuery,
+  useUpdateImportantDateMutation,
+} from "@/features/importantDates/importantDatesApi";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -14,14 +22,6 @@ import {
 
 import { toast } from "sonner";
 
-import {
-  createImportantDate,
-  deleteImportantDate,
-  getImportantDates,
-  getUpcomingBirthdays,
-  updateImportantDate,
-} from "@/lib/important-date-api";
-
 import { fieldClass, FieldRow, textareaClass } from "./directory-shared";
 
 import { DirectoryTableSkeleton } from "./DirectoryManagement";
@@ -34,6 +34,8 @@ const emptyForm = {
 };
 
 function ImportantDateForm({ importantDate, onCancel, onSaved }) {
+  const updateImportantDate = useMutate(useUpdateImportantDateMutation);
+  const createImportantDate = useMutate(useCreateImportantDateMutation);
   const isEdit = Boolean(importantDate);
 
   const [form, setForm] = useState(
@@ -107,7 +109,7 @@ function ImportantDateForm({ importantDate, onCancel, onSaved }) {
 
     try {
       const saved = isEdit
-        ? await updateImportantDate(importantDate.id, form)
+        ? await updateImportantDate({ id: importantDate.id, importantDate: form })
         : await createImportantDate(form);
 
       toast.success(isEdit ? "Important date updated." : "Important date added.");
@@ -257,6 +259,9 @@ function birthdayToRow(member) {
 }
 
 export function ImportantDatesManagement() {
+  const getImportantDates = useLazyCall(useLazyGetImportantDatesQuery);
+  const getUpcomingBirthdays = useLazyCall(useLazyGetUpcomingBirthdaysQuery);
+  const deleteImportantDate = useMutate(useDeleteImportantDateMutation);
   const [dates, setDates] = useState([]);
   const [birthdays, setBirthdays] = useState([]);
 

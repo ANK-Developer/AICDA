@@ -1,6 +1,4 @@
-import { useEffect, useState } from "react";
-
-import { Link } from "@tanstack/react-router";
+import { AppLink as Link } from "@/components/common/AppLink";
 
 import {
   Building2,
@@ -24,8 +22,8 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { getMediaUrl } from "@/lib/config";
-import { getPublicMember } from "@/lib/member-api";
-import { getPublicPartner } from "@/lib/partner-api";
+import { useGetPublicMemberQuery } from "@/features/members/membersApi";
+import { useGetPublicPartnerQuery } from "@/features/partners/partnersApi";
 
 import { daysRemaining, expiryLabel, isExpired } from "@/components/admin/directory-shared";
 
@@ -221,44 +219,14 @@ async function shareProfile(url, name) {
 // Renders a Member's or a Partner's public profile from the no-auth
 // GET /members/public/:id or GET /partners/public/:id endpoints.
 export function PublicProfileView({ type, id }) {
-  const [record, setRecord] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-
-    setLoading(true);
-    setNotFound(false);
-    setRecord(null);
-
-    const fetcher = type === "partner" ? getPublicPartner : getPublicMember;
-
-    fetcher(id)
-      .then((data) => {
-        if (!mounted) return;
-
-        if (!data) {
-          setNotFound(true);
-        } else {
-          setRecord(data);
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setNotFound(true);
-        }
-      })
-      .finally(() => {
-        if (mounted) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [type, id]);
+  const memberQuery = useGetPublicMemberQuery(id, { skip: type === "partner" });
+  const partnerQuery = useGetPublicPartnerQuery(id, { skip: type !== "partner" });
+  const {
+    currentData: record = null,
+    isFetching: loading,
+    isError,
+  } = type === "partner" ? partnerQuery : memberQuery;
+  const notFound = isError || (!loading && !record);
 
   const isPartner = type === "partner";
 

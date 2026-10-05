@@ -1,5 +1,13 @@
+import { useLazyGetMembersQuery } from "@/features/members/membersApi";
+import {
+  useDeletePartnerMutation,
+  useLazyGetPartnersQuery,
+  useRenewPartnerMutation,
+  useTogglePartnerStatusMutation,
+} from "@/features/partners/partnersApi";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { AppLink as Link } from "@/components/common/AppLink";
 import { ArrowLeft, Eye, Link2, Pencil, RefreshCw, Search, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -13,13 +21,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getMembers } from "@/lib/member-api";
-import {
-  deletePartner as deletePartnerRequest,
-  getPartners,
-  renewPartner,
-  togglePartnerStatus,
-} from "@/lib/partner-api";
 import {
   buildPartnerSlug,
   buildPublicPartnerUrl,
@@ -68,6 +69,11 @@ function PartnerCardSkeleton() {
 }
 
 export function PartnerDirectory() {
+  const getMembers = useLazyCall(useLazyGetMembersQuery);
+  const getPartners = useLazyCall(useLazyGetPartnersQuery);
+  const deletePartnerRequest = useMutate(useDeletePartnerMutation);
+  const togglePartnerStatus = useMutate(useTogglePartnerStatusMutation);
+  const renewPartner = useMutate(useRenewPartnerMutation);
   const [members, setMembers] = useState([]);
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -254,7 +260,8 @@ export function PartnerDirectory() {
     setRenewing(true);
     setRenewError("");
     try {
-      await renewPartner(renewTarget.id, {
+      await renewPartner({
+        id: renewTarget.id,
         validityTo: renewDate,
         amount: renewAmount ? Number(renewAmount) : undefined,
       });

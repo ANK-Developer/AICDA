@@ -1,5 +1,10 @@
+import {
+  useLazyGetPartnerDetailsQuery,
+  useRenewPartnerMutation,
+} from "@/features/partners/partnersApi";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { AppLink as Link } from "@/components/common/AppLink";
 import {
   ArrowLeft,
   CalendarDays,
@@ -20,8 +25,6 @@ import { toJpeg } from "html-to-image";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMediaUrl } from "@/lib/config";
-
-import { getPartnerDetails, renewPartner } from "@/lib/partner-api";
 
 import {
   buildMemberSlug,
@@ -189,6 +192,8 @@ function EmptyState({ message = "Partner not found." }) {
 /* -------------------------------------------------------------------------- */
 
 export function PartnerDetails({ slug }) {
+  const getPartnerDetails = useLazyCall(useLazyGetPartnerDetailsQuery);
+  const renewPartner = useMutate(useRenewPartnerMutation);
   const [partner, setPartner] = useState(null);
 
   const [loading, setLoading] = useState(true);
@@ -241,7 +246,7 @@ export function PartnerDetails({ slug }) {
         }
       }
     },
-    [slug],
+    [slug, getPartnerDetails],
   );
 
   useEffect(() => {
@@ -281,7 +286,7 @@ export function PartnerDetails({ slug }) {
     return () => {
       mounted = false;
     };
-  }, [slug]);
+  }, [slug, getPartnerDetails]);
 
   /* ------------------------------------------------------------------------ */
   /* Derived values                                                            */
@@ -387,7 +392,8 @@ export function PartnerDetails({ slug }) {
     setRenewError("");
 
     try {
-      await renewPartner(partner.id, {
+      await renewPartner({
+        id: partner.id,
         validityTo: renewDate,
         amount: renewAmount === "" ? undefined : Number(renewAmount),
       });

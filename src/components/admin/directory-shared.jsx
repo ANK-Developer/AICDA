@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, LoaderCircle, Users, UserCheck, UserX } from "lucide-react";
-import { searchCities } from "@/lib/locations-api";
+import { useLazySearchCitiesQuery } from "@/features/locations/locationsApi";
 
 const STAT_CARD_ACCENTS = {
   sky: "bg-sky-50 text-sky-700",
@@ -379,6 +379,7 @@ const CITY_SEARCH_DEBOUNCE_MS = 350;
 // SuggestCombobox's synchronous in-memory filter. Freeform entry is always
 // allowed — a brand-new city just gets created on save.
 export function CityCombobox({ value, onChange }) {
+  const [searchCities] = useLazySearchCitiesQuery();
   const [open, setOpen] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -404,13 +405,14 @@ export function CityCombobox({ value, onChange }) {
     }
     setLoading(true);
     const timer = setTimeout(() => {
-      searchCities(value)
+      searchCities(value, true)
+        .unwrap()
         .then(setSuggestions)
         .catch(() => setSuggestions([]))
         .finally(() => setLoading(false));
     }, CITY_SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [open, value]);
+  }, [open, value, searchCities]);
 
   return (
     <div ref={containerRef} className="relative">

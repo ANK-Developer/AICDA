@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { changePassword } from "@/lib/auth-api";
-import { resetSuperAdminPassword } from "@/lib/super-admin-api";
+import { useChangePasswordMutation } from "@/features/auth/authApi";
+import { useResetSuperAdminPasswordMutation } from "@/features/superAdmins/superAdminsApi";
 
 export function ChangePasswordModal({ onClose, defaultEmail, superAdminId }) {
   const [email, setEmail] = useState(defaultEmail || "");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [saving, setSaving] = useState(false);
+  const [changePassword] = useChangePasswordMutation();
+  const [resetSuperAdminPassword] = useResetSuperAdminPasswordMutation();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
@@ -30,9 +32,12 @@ export function ChangePasswordModal({ onClose, defaultEmail, superAdminId }) {
     setSaving(true);
     try {
       if (superAdminId) {
-        await resetSuperAdminPassword(superAdminId, { newPassword, confirmPassword });
+        await resetSuperAdminPassword({
+          id: superAdminId,
+          payload: { newPassword, confirmPassword },
+        }).unwrap();
       } else {
-        await changePassword({ email: email.trim(), newPassword, confirmPassword });
+        await changePassword({ email: email.trim(), newPassword, confirmPassword }).unwrap();
       }
       setSuccess(true);
     } catch (requestError) {

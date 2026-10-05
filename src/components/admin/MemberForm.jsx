@@ -1,3 +1,5 @@
+import { useCreateMemberMutation, useUpdateMemberMutation } from "@/features/members/membersApi";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -15,7 +17,6 @@ import {
 
 import { toast } from "sonner";
 
-import { createMember, updateMember } from "@/lib/member-api";
 import { getDistrictsForStateName } from "@/lib/india-districts";
 
 import {
@@ -138,6 +139,8 @@ function FormInput({ label, required = false, error, children }) {
 ========================================================= */
 
 export function MemberForm({ member, onCancel, onSaved }) {
+  const createMember = useMutate(useCreateMemberMutation);
+  const updateMember = useMutate(useUpdateMemberMutation);
   const isEdit = Boolean(member);
 
   const [form, setForm] = useState(() => buildInitialForm(member));
@@ -279,7 +282,9 @@ export function MemberForm({ member, onCancel, onSaved }) {
     setSaving(true);
 
     try {
-      const saved = isEdit ? await updateMember(member.id, form) : await createMember(form);
+      const saved = isEdit
+        ? await updateMember({ id: member.id, member: form })
+        : await createMember(form);
 
       toast.success(isEdit ? "Member updated." : "Member added.");
 

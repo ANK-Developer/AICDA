@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import { Menu, X, Phone, Mail } from "lucide-react";
 import { primaryNav } from "./nav-data";
@@ -33,7 +33,11 @@ export function SiteHeader() {
       <div className="bg-background text-foreground">
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between gap-4">
           <Link to="/" className="flex items-center gap-3 group">
-            <img src={aicdaLogo} alt="AICDA" className="h-12 w-12 shrink-0 object-contain sm:h-14 sm:w-14" />
+            <img
+              src={aicdaLogo}
+              alt="AICDA"
+              className="h-12 w-12 shrink-0 object-contain sm:h-14 sm:w-14"
+            />
             <span className="leading-tight">
               <span
                 className="block text-lg sm:text-2xl font-black tracking-tight text-primary"

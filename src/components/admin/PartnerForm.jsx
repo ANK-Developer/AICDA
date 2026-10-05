@@ -1,10 +1,13 @@
+import {
+  useCreatePartnerMutation,
+  useUpdatePartnerMutation,
+} from "@/features/partners/partnersApi";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Image as ImageIcon } from "lucide-react";
 
 import { toast } from "sonner";
-
-import { createPartner, updatePartner } from "@/lib/partner-api";
 
 import {
   CityCombobox,
@@ -194,6 +197,8 @@ function FormSection({ title, description, children }) {
 }
 
 export function PartnerForm({ partner, members = [], lockedMember, onCancel, onSaved }) {
+  const createPartner = useMutate(useCreatePartnerMutation);
+  const updatePartner = useMutate(useUpdatePartnerMutation);
   const isEdit = Boolean(partner);
 
   // Locked: the caller already knows which member this is for.
@@ -320,7 +325,9 @@ export function PartnerForm({ partner, members = [], lockedMember, onCancel, onS
     setSaving(true);
 
     try {
-      const saved = isEdit ? await updatePartner(partner.id, form) : await createPartner(form);
+      const saved = isEdit
+        ? await updatePartner({ id: partner.id, partner: form })
+        : await createPartner(form);
 
       toast.success(isEdit ? "Partner updated." : "Partner added.");
 

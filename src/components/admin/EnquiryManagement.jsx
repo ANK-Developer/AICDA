@@ -1,3 +1,8 @@
+import {
+  useDeleteEnquiryMutation,
+  useLazyGetEnquiriesQuery,
+} from "@/features/enquiries/enquiriesApi";
+import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
@@ -17,7 +22,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { deleteEnquiry, getEnquiries } from "@/lib/enquiry-api";
 
 const PAGE_SIZE = 10;
 
@@ -192,6 +196,8 @@ function EmptyState() {
 /* -------------------------------------------------------------------------- */
 
 export function EnquiryManagement() {
+  const getEnquiries = useLazyCall(useLazyGetEnquiriesQuery);
+  const deleteEnquiry = useMutate(useDeleteEnquiryMutation);
   const [enquiries, setEnquiries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

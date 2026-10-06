@@ -6,14 +6,14 @@ import { BrowserRouter } from "react-router-dom";
 import "./styles.css";
 import App from "./App";
 import { store } from "./app/store";
-import { Toaster } from "@/components/ui/sonner";
+import { ToastContainer } from "react-toastify";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <Provider store={store}>
       <BrowserRouter>
         <App />
-        <Toaster />
+        <ToastContainer position="top-right" autoClose={4000} limit={3} newestOnTop />
       </BrowserRouter>
     </Provider>
   </StrictMode>,

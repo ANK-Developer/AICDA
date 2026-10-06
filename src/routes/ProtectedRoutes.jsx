@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useGetCurrentUserQuery, useLogoutMutation } from "@/features/auth/authApi";
 
@@ -12,7 +13,8 @@ export default function ProtectedRoutes() {
   const handleLogout = async () => {
     await logout()
       .unwrap()
-      .catch(() => undefined);
+      .then(() => toast.success("Signed out successfully."))
+      .catch(() => toast.error("Could not reach the server — you have been signed out locally."));
     navigate("/admin/login", { replace: true });
   };
 

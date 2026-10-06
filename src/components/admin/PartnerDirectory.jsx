@@ -9,7 +9,8 @@ import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useMemo, useState } from "react";
 import { AppLink as Link } from "@/components/common/AppLink";
 import { ArrowLeft, Eye, Link2, Pencil, RefreshCw, Search, Trash2, Users } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
+import { confirmToast } from "@/lib/confirm-toast";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -105,7 +106,9 @@ export function PartnerDirectory() {
       setMembers(membersResult.members);
       setPartners(partnersResult);
     } catch (requestError) {
-      setListError(requestError.message || "Could not load partners.");
+      const message = requestError.message || "Could not load partners.";
+      setListError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -216,16 +219,10 @@ export function PartnerDirectory() {
   };
 
   const deletePartner = (partner) => {
-    toast(`Remove ${partner.partnerName || "this partner"} from the directory?`, {
+    confirmToast({
+      title: `Remove ${partner.partnerName || "this partner"} from the directory?`,
       description: "This action cannot be undone.",
-      action: {
-        label: "Delete",
-        onClick: () => performDelete(partner),
-      },
-      cancel: {
-        label: "Cancel",
-        onClick: () => {},
-      },
+      onConfirm: () => performDelete(partner),
     });
   };
 

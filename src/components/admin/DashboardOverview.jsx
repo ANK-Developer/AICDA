@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 
 import { AppLink as Link } from "@/components/common/AppLink";
 
@@ -321,7 +322,9 @@ export function DashboardOverview() {
       .catch((requestError) => {
         if (!mounted) return;
 
-        setError(requestError?.message || "Could not load dashboard data.");
+        const message = requestError?.message || "Could not load dashboard data.";
+        setError(message);
+        toast.error(message);
       })
       .finally(() => {
         if (mounted) {

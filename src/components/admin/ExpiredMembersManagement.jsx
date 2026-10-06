@@ -2,6 +2,7 @@ import { useLazyGetMembersQuery } from "@/features/members/membersApi";
 import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Search } from "lucide-react";
+import { toast } from "react-toastify";
 
 function isExpired(validityTo) {
   if (!validityTo) return false;
@@ -31,9 +32,12 @@ export function ExpiredMembersManagement() {
     setLoading(true);
     getMembers()
       .then((data) => mounted && setMembers(data))
-      .catch(
-        (requestError) => mounted && setError(requestError.message || "Could not load members."),
-      )
+      .catch((requestError) => {
+        if (!mounted) return;
+        const message = requestError.message || "Could not load members.";
+        setError(message);
+        toast.error(message);
+      })
       .finally(() => mounted && setLoading(false));
     return () => {
       mounted = false;

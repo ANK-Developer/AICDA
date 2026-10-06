@@ -8,6 +8,7 @@ import {
 import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useRef, useState } from "react";
 import { AppLink as Link } from "@/components/common/AppLink";
+import { useGoBack } from "@/hooks/use-go-back";
 import {
   ArrowLeft,
   CalendarDays,
@@ -30,7 +31,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { toJpeg } from "html-to-image";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { getMediaUrl } from "@/lib/config";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -205,6 +206,8 @@ export function MemberDetails({ slug }) {
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState("");
 
+  const goBack = useGoBack("/admin/directory");
+
   /* ------------------------------------------------------------------------ */
   /* Load Member                                                              */
   /* ------------------------------------------------------------------------ */
@@ -244,8 +247,10 @@ export function MemberDetails({ slug }) {
         }
       } catch (requestError) {
         if (mounted) {
+          const message = requestError?.message || "Could not load this member.";
           setMember(null);
-          setError(requestError?.message || "Could not load this member.");
+          setError(message);
+          toast.error(message);
         }
       } finally {
         if (mounted) {
@@ -457,13 +462,14 @@ export function MemberDetails({ slug }) {
       {/* ------------------------------------------------------------------ */}
 
       <div className="flex flex-col gap-3 rounded-[5px] border border-slate-200 bg-white px-3 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <Link
-          to="/admin/directory"
+        <button
+          type="button"
+          onClick={goBack}
           className="inline-flex w-fit items-center gap-1.5 rounded-[4px] px-2 py-1.5 text-[13px] font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-sky-700"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Directory
-        </Link>
+          Back
+        </button>
 
         {member && (
           <div className="flex flex-wrap items-center gap-2">
@@ -556,8 +562,6 @@ export function MemberDetails({ slug }) {
           {/* ============================================================ */}
 
           <aside className="relative h-fit rounded-[5px] border border-slate-200 bg-white p-5 shadow-sm">
-            <ProfileStatusThumb active={isEffectivelyActive} />
-
             <div className="flex flex-col items-center">
               {member.photo ? (
                 <div className="overflow-hidden rounded-[5px] border border-slate-200 bg-slate-50">
@@ -633,9 +637,7 @@ export function MemberDetails({ slug }) {
                   </p>
                 </div>
 
-                <div className="hidden h-8 w-8 items-center justify-center rounded-[4px] bg-slate-100 sm:flex">
-                  <UserRound className="h-4 w-4 text-slate-500" />
-                </div>
+                <ProfileStatusThumb active={isEffectivelyActive} />
               </div>
 
               <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">

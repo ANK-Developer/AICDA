@@ -59,6 +59,17 @@ export const galleryApi = baseApi.injectEndpoints({
       invalidatesTags: ["Gallery"],
     }),
 
+    // arg: { section, ids } — ids of that section's banners in the wanted order.
+    reorderBanners: builder.mutation({
+      query: ({ section, ids }) => ({
+        url: "/gallery/banners/reorder",
+        method: "PATCH",
+        body: { section, ids },
+      }),
+      transformResponse: unwrapData,
+      invalidatesTags: ["Gallery"],
+    }),
+
     deleteGalleryImage: builder.mutation({
       query: (id) => ({ url: `/gallery/${id}`, method: "DELETE" }),
       transformResponse: unwrapData,
@@ -73,5 +84,6 @@ export const {
   useUploadGalleryImageMutation,
   useUpdateGalleryImageMutation,
   useSetGalleryVisibilityMutation,
+  useReorderBannersMutation,
   useDeleteGalleryImageMutation,
 } = galleryApi;

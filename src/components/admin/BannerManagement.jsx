@@ -1,19 +1,38 @@
 import { useEffect, useRef, useState } from "react";
 
-import { Eye, ImageOff, LoaderCircle, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Eye,
+  EyeOff,
+  ImageOff,
+  LoaderCircle,
+  Maximize2,
+  Pencil,
+  Plus,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 
 import {
   useDeleteGalleryImageMutation,
   useLazyGetGalleryImagesQuery,
+  useReorderBannersMutation,
+  useSetGalleryVisibilityMutation,
   useUpdateGalleryImageMutation,
   useUploadGalleryImageMutation,
 } from "@/features/gallery/galleryApi";
 
-import { BANNER_QUERY } from "@/hooks/use-banners";
 import { getMediaUrl } from "@/lib/config";
 import { BANNER_SECTIONS } from "@/lib/banner-sections";
+
+// The admin list includes hidden banners; the public pages only get visible ones.
+const ADMIN_BANNER_QUERY = { category: "BANNER", limit: 100, admin: true };
+
+const MAX_FILE_SIZE_MB = 5;
 
 /* =========================================================
    HELPERS
@@ -99,13 +118,9 @@ function ViewBannerModal({ banner, onClose }) {
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-700">{sectionLabel(banner.title)}</p>
-
-          <p className="mt-1 text-xs text-slate-500">
-            Uploaded {banner.createdAt ? new Date(banner.createdAt).toLocaleDateString() : "—"}
-          </p>
-        </div>
+        <p className="text-xs text-slate-500">
+          Uploaded {banner.createdAt ? new Date(banner.createdAt).toLocaleDateString() : "—"}
+        </p>
 
         <button
           type="button"
@@ -120,6 +135,34 @@ function ViewBannerModal({ banner, onClose }) {
 }
 
 /* =========================================================
+   SMALL ICON BUTTON
+========================================================= */
+
+function IconButton({ label, onClick, disabled, tone = "slate", children }) {
+  const tones = {
+    slate: "border-slate-200 text-slate-600 hover:border-red-200 hover:bg-red-50 hover:text-red-600",
+    amber: "border-slate-200 text-slate-600 hover:border-amber-200 hover:bg-amber-50 hover:text-amber-600",
+    red: "border-red-100 text-red-500 hover:border-red-200 hover:bg-red-50 hover:text-red-700",
+    green:
+      "border-emerald-200 bg-emerald-50 text-emerald-600 hover:border-emerald-300 hover:bg-emerald-100",
+    muted: "border-slate-200 bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600",
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      aria-label={label}
+      className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border bg-white transition-all disabled:cursor-not-allowed disabled:opacity-40 ${tones[tone]}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* =========================================================
    BANNER MANAGEMENT
 ========================================================= */
 
@@ -129,13 +172,15 @@ export function BannerManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [modalSection, setModalSection] = useState(null);
+  // { section, banner } — banner is set when replacing an existing image.
+  const [uploadTarget, setUploadTarget] = useState(null);
 
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
 
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [busyId, setBusyId] = useState(null);
 
   const [deletingBanner, setDeletingBanner] = useState(null);
   const [viewingBanner, setViewingBanner] = useState(null);
@@ -148,23 +193,25 @@ export function BannerManagement() {
   const [updateGalleryImage] = useUpdateGalleryImageMutation();
   const [uploadGalleryImage] = useUploadGalleryImageMutation();
   const [deleteGalleryImage] = useDeleteGalleryImageMutation();
+  const [setVisibility] = useSetGalleryVisibilityMutation();
+  const [reorderBanners] = useReorderBannersMutation();
 
   /* =========================================================
      LOAD BANNERS
   ========================================================= */
 
   const loadBanners = async () => {
-    setLoading(true);
     setError("");
 
     try {
-      const { gallery } = await fetchGallery(BANNER_QUERY, true).unwrap();
+      const { gallery } = await fetchGallery(ADMIN_BANNER_QUERY, false).unwrap();
 
       setBanners(gallery || []);
     } catch (requestError) {
       const message = requestError?.message || "Could not load banners.";
 
       setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -181,7 +228,7 @@ export function BannerManagement() {
   useEffect(() => {
     if (!file) {
       setPreview(null);
-      return;
+      return undefined;
     }
 
     const url = URL.createObjectURL(file);
@@ -194,27 +241,19 @@ export function BannerManagement() {
   }, [file]);
 
   /* =========================================================
-     CURRENT SECTION
+     UPLOAD MODAL
   ========================================================= */
 
-  const section = BANNER_SECTIONS.find((item) => item.key === modalSection);
-
-  const existing = banners.find((banner) => banner.title === modalSection);
-
-  /* =========================================================
-     OPEN / CLOSE UPLOAD MODAL
-  ========================================================= */
-
-  const openModal = (key) => {
-    setModalSection(key);
+  const openUpload = (section, banner = null) => {
+    setUploadTarget({ section, banner });
     setFile(null);
     setPreview(null);
     setError("");
     setDragActive(false);
   };
 
-  const closeModal = () => {
-    setModalSection(null);
+  const closeUpload = () => {
+    setUploadTarget(null);
     setFile(null);
     setPreview(null);
     setError("");
@@ -225,41 +264,16 @@ export function BannerManagement() {
     }
   };
 
-  /* =========================================================
-     IMPORTANT:
-     CHANGE SECTION WITHOUT CLEARING SELECTED FILE
-  ========================================================= */
-
-  const handleSectionChange = (event) => {
-    const newSection = event.target.value;
-
-    /*
-      Do NOT call openModal() here.
-
-      openModal() clears the selected file.
-      Therefore changing dropdown should only change
-      modalSection.
-    */
-
-    setModalSection(newSection);
-
-    /*
-      Clear only the file input value if necessary.
-      The selected file state itself is preserved.
-    */
-  };
-
-  /* =========================================================
-     FILE SELECT
-  ========================================================= */
-
-  const handleFileChange = (event) => {
-    const selectedFile = event.target.files?.[0];
-
+  const acceptFile = (selectedFile, verb) => {
     if (!selectedFile) return;
 
     if (!selectedFile.type.startsWith("image/")) {
-      toast.error("Please select a valid image file.");
+      toast.error(`Please ${verb} a valid image file.`);
+      return;
+    }
+
+    if (selectedFile.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      toast.error(`Image is too large. Maximum size is ${MAX_FILE_SIZE_MB} MB.`);
       return;
     }
 
@@ -267,30 +281,16 @@ export function BannerManagement() {
     setError("");
   };
 
-  /* =========================================================
-     DRAG & DROP
-  ========================================================= */
+  const handleFileChange = (event) => acceptFile(event.target.files?.[0], "select");
 
   const handleDrop = (event) => {
     event.preventDefault();
-
     setDragActive(false);
-
-    const dropped = event.dataTransfer.files?.[0];
-
-    if (!dropped) return;
-
-    if (!dropped.type.startsWith("image/")) {
-      toast.error("Please drop a valid image file.");
-      return;
-    }
-
-    setFile(dropped);
-    setError("");
+    acceptFile(event.dataTransfer.files?.[0], "drop");
   };
 
   /* =========================================================
-     UPLOAD / UPDATE
+     UPLOAD / REPLACE
   ========================================================= */
 
   const handleUpload = async (event) => {
@@ -301,44 +301,31 @@ export function BannerManagement() {
       return;
     }
 
-    if (!modalSection) {
-      toast.error("Please select a banner section.");
-      return;
-    }
+    const { section, banner } = uploadTarget;
 
     setSaving(true);
     setError("");
 
     try {
-      const currentExisting = banners.find((banner) => banner.title === modalSection);
-
-      if (currentExisting) {
-        /*
-          Existing banner:
-          update the current image
-        */
-        await updateGalleryImage({
-          id: currentExisting.id,
-          file,
-        }).unwrap();
+      if (banner) {
+        await updateGalleryImage({ id: banner.id, file }).unwrap();
       } else {
-        /*
-          No banner:
-          create new banner
-        */
-        await uploadGalleryImage({ file, category: "BANNER", title: modalSection }).unwrap();
+        await uploadGalleryImage({ file, category: "BANNER", title: section }).unwrap();
       }
 
       await loadBanners();
 
-      toast.success(`${sectionLabel(modalSection)} banner updated successfully.`);
+      toast.success(
+        banner
+          ? `${sectionLabel(section)} banner replaced.`
+          : `Banner added to ${sectionLabel(section)}.`,
+      );
 
-      closeModal();
+      closeUpload();
     } catch (requestError) {
       const message = requestError?.message || "Could not save banner.";
 
       setError(message);
-
       toast.error(message);
     } finally {
       setSaving(false);
@@ -346,34 +333,58 @@ export function BannerManagement() {
   };
 
   /* =========================================================
-     REMOVE / RESET BANNER FROM EDIT MODAL
+     SHOW / HIDE
   ========================================================= */
 
-  const handleRemove = async () => {
-    if (!existing) return;
-
-    setRemoving(true);
-    setError("");
+  const handleToggleVisibility = async (banner) => {
+    setBusyId(banner.id);
 
     try {
-      await deleteGalleryImage(existing.id).unwrap();
+      await setVisibility({ id: banner.id, isActive: !banner.isActive }).unwrap();
 
       await loadBanners();
 
-      toast.success(`${sectionLabel(existing.title)} banner reset to default.`);
-
-      closeModal();
+      toast.success(
+        banner.isActive
+          ? "Banner hidden. It will not show on the website."
+          : "Banner is visible on the website again.",
+      );
     } catch (requestError) {
-      const message = requestError?.message || "Could not remove banner.";
-
-      toast.error(message);
+      toast.error(requestError?.message || "Could not update the banner.");
     } finally {
-      setRemoving(false);
+      setBusyId(null);
     }
   };
 
   /* =========================================================
-     DELETE CONFIRMATION
+     REORDER
+  ========================================================= */
+
+  const handleMove = async (section, items, index, direction) => {
+    const target = index + direction;
+
+    if (target < 0 || target >= items.length) return;
+
+    const ids = items.map((item) => item.id);
+    [ids[index], ids[target]] = [ids[target], ids[index]];
+
+    setBusyId(items[index].id);
+
+    try {
+      await reorderBanners({ section, ids }).unwrap();
+
+      await loadBanners();
+
+      toast.success("Banner order saved.");
+    } catch (requestError) {
+      toast.error(requestError?.message || "Could not save the banner order.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  /* =========================================================
+     DELETE
   ========================================================= */
 
   const confirmDeleteBanner = async () => {
@@ -382,22 +393,15 @@ export function BannerManagement() {
     setRemoving(true);
 
     try {
-      /*
-        Same existing delete API
-      */
       await deleteGalleryImage(deletingBanner.id).unwrap();
 
       await loadBanners();
 
-      toast.success(
-        `${sectionLabel(deletingBanner.title)} banner deleted. Default banner restored.`,
-      );
+      toast.success(`Banner removed from ${sectionLabel(deletingBanner.title)}.`);
 
       setDeletingBanner(null);
     } catch (requestError) {
-      const message = requestError?.message || "Could not delete banner.";
-
-      toast.error(message);
+      toast.error(requestError?.message || "Could not delete banner.");
     } finally {
       setRemoving(false);
     }
@@ -407,229 +411,200 @@ export function BannerManagement() {
      RENDER
   ========================================================= */
 
+  const uploadSection = BANNER_SECTIONS.find((item) => item.key === uploadTarget?.section);
+
   return (
     <section className="w-full max-w-6xl space-y-4">
       {/* =====================================================
           PAGE HEADER
       ===================================================== */}
 
-      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">Banner Management</h2>
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="text-xl font-bold text-slate-800">Banner Management</h2>
 
-          <p className="mt-1 text-sm text-slate-500">
-            Manage homepage and page banners from one place.
-          </p>
-        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Each section can have several banners. They play one by one in the order shown here. A
+          section with a single banner shows it without sliding, and a section with none uses the
+          default banners.
+        </p>
+      </div>
 
-        <button
-          type="button"
-          onClick={() => openModal(BANNER_SECTIONS[0]?.key)}
-          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white shadow-sm transition-all hover:bg-red-700 active:scale-[0.98]"
+      {error && !uploadTarget && (
+        <p
+          role="alert"
+          className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
-          <Plus className="h-4 w-4" />
-          Upload Banner
-        </button>
-      </div>
+          {error}
+        </p>
+      )}
 
-      {/* =====================================================
-          TABLE CONTAINER
-      ===================================================== */}
+      {loading ? (
+        <div className="flex min-h-56 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-500 shadow-sm">
+          <LoaderCircle className="h-5 w-5 animate-spin" />
+          Loading banners...
+        </div>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {BANNER_SECTIONS.map((section) => {
+            const items = banners.filter((banner) => banner.title === section.key);
+            const visibleCount = items.filter((banner) => banner.isActive).length;
+            const isFull = items.length >= section.max;
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        {/* Error */}
-        {error && !modalSection && (
-          <div className="border-b border-red-100 bg-red-50 px-4 py-3">
-            <p role="alert" className="text-sm text-red-700">
-              {error}
-            </p>
-          </div>
-        )}
+            return (
+              <div
+                key={section.key}
+                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+              >
+                {/* Section header */}
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-bold text-slate-800">{section.label}</h3>
 
-        {/* Loading */}
-        {loading ? (
-          <div className="flex min-h-56 items-center justify-center gap-2 text-sm text-slate-500">
-            <LoaderCircle className="h-5 w-5 animate-spin" />
-            Loading banners...
-          </div>
-        ) : banners.length === 0 ? (
-          /* Empty State */
-          <div className="flex min-h-56 flex-col items-center justify-center px-4 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
-              <ImageOff className="h-7 w-7 text-slate-400" />
-            </div>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {items.length} of {section.max} used
+                      {items.length > 0 && ` · ${visibleCount} visible`}
+                    </p>
+                  </div>
 
-            <h3 className="mt-4 text-sm font-semibold text-slate-700">No uploaded banners</h3>
-
-            <p className="mt-1 max-w-md text-sm text-slate-500">
-              All banner sections are currently using their default images.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => openModal(BANNER_SECTIONS[0]?.key)}
-              className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700"
-            >
-              <Plus className="h-4 w-4" />
-              Upload first banner
-            </button>
-          </div>
-        ) : (
-          /* =================================================
-             RESPONSIVE TABLE
-          ================================================= */
-
-          <div className="w-full overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50">
-                <tr>
-                  <th className="px-4 py-3 font-semibold text-slate-600">Banner</th>
-
-                  <th className="px-4 py-3 font-semibold text-slate-600">Section</th>
-
-                  <th className="px-4 py-3 font-semibold text-slate-600">Uploaded</th>
-
-                  <th className="px-4 py-3 text-center font-semibold text-slate-600">Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {banners.map((banner, index) => (
-                  <tr
-                    key={banner.id}
-                    className={`border-b border-slate-100 transition-colors last:border-b-0 hover:bg-slate-50 ${
-                      index % 2 === 0 ? "bg-white" : "bg-slate-50/40"
-                    }`}
+                  <button
+                    type="button"
+                    onClick={() => openUpload(section.key)}
+                    disabled={isFull}
+                    title={isFull ? "Maximum reached. Delete a banner to add another." : "Add banner"}
+                    className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-red-600 px-3 text-xs font-semibold text-white shadow-sm transition-all hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-slate-300"
                   >
-                    {/* Image */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center">
-                        <div className="h-16 w-28 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 shadow-sm">
-                          <img
-                            src={getMediaUrl(banner.imageUrl)}
-                            alt={sectionLabel(banner.title)}
-                            className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
-                          />
-                        </div>
-                      </div>
-                    </td>
+                    <Plus className="h-4 w-4" />
+                    Add
+                  </button>
+                </div>
 
-                    {/* Section */}
-                    <td className="px-4 py-3">
-                      <div>
-                        <p className="font-semibold text-slate-700">{sectionLabel(banner.title)}</p>
+                {/* Banner list */}
+                {items.length === 0 ? (
+                  <div className="flex items-center gap-3 px-4 py-5 text-sm text-slate-500">
+                    <ImageOff className="h-5 w-5 shrink-0 text-slate-400" />
+                    Using the default banners.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-slate-100">
+                    {items.map((banner, index) => {
+                      const busy = busyId === banner.id;
 
-                        <p className="mt-0.5 text-xs text-slate-400">{banner.title}</p>
-                      </div>
-                    </td>
+                      return (
+                        <li key={banner.id} className="flex items-center gap-3 px-4 py-3">
+                          <span className="w-4 shrink-0 text-center text-xs font-bold text-slate-400">
+                            {index + 1}
+                          </span>
 
-                    {/* Date */}
-                    <td className="px-4 py-3 text-slate-500">
-                      {banner.createdAt ? new Date(banner.createdAt).toLocaleDateString() : "—"}
-                    </td>
+                          <div className="relative h-14 w-24 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+                            <img
+                              src={getMediaUrl(banner.imageUrl)}
+                              alt={`${section.label} banner ${index + 1}`}
+                              className={`h-full w-full object-cover ${banner.isActive ? "" : "opacity-40"}`}
+                            />
 
-                    {/* Actions */}
-                    <td className="px-4 py-3">
-                      <div className="flex justify-center gap-2">
-                        {/* View */}
-                        <button
-                          type="button"
-                          onClick={() => setViewingBanner(banner)}
-                          title="View banner"
-                          aria-label="View banner"
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
+                            {!banner.isActive && (
+                              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold uppercase tracking-wide text-slate-700">
+                                Hidden
+                              </span>
+                            )}
+                          </div>
 
-                        {/* Edit */}
-                        <button
-                          type="button"
-                          onClick={() => openModal(banner.title)}
-                          title="Edit banner"
-                          aria-label="Edit banner"
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-all hover:border-amber-200 hover:bg-amber-50 hover:text-amber-600"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
+                          <div className="ml-auto flex flex-wrap justify-end gap-1.5">
+                            {busy ? (
+                              <LoaderCircle className="h-5 w-5 animate-spin text-slate-400" />
+                            ) : (
+                              <>
+                                {section.max > 1 && (
+                                  <>
+                                    <IconButton
+                                      label="Move up"
+                                      disabled={index === 0}
+                                      onClick={() => handleMove(section.key, items, index, -1)}
+                                    >
+                                      <ArrowUp className="h-4 w-4" />
+                                    </IconButton>
 
-                        {/* Delete */}
-                        <button
-                          type="button"
-                          onClick={() => setDeletingBanner(banner)}
-                          title="Delete banner"
-                          aria-label="Delete banner"
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-red-100 bg-white text-red-500 transition-all hover:border-red-200 hover:bg-red-50 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                                    <IconButton
+                                      label="Move down"
+                                      disabled={index === items.length - 1}
+                                      onClick={() => handleMove(section.key, items, index, 1)}
+                                    >
+                                      <ArrowDown className="h-4 w-4" />
+                                    </IconButton>
+                                  </>
+                                )}
+
+                                <IconButton
+                                  label="Preview full image"
+                                  onClick={() => setViewingBanner(banner)}
+                                >
+                                  <Maximize2 className="h-4 w-4" />
+                                </IconButton>
+
+                                <IconButton
+                                  label={
+                                    banner.isActive
+                                      ? "Visible on website — click to hide"
+                                      : "Hidden from website — click to show"
+                                  }
+                                  tone={banner.isActive ? "green" : "muted"}
+                                  onClick={() => handleToggleVisibility(banner)}
+                                >
+                                  {banner.isActive ? (
+                                    <Eye className="h-4 w-4" />
+                                  ) : (
+                                    <EyeOff className="h-4 w-4" />
+                                  )}
+                                </IconButton>
+
+                                <IconButton
+                                  label="Replace image"
+                                  tone="amber"
+                                  onClick={() => openUpload(section.key, banner)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </IconButton>
+
+                                <IconButton
+                                  label="Delete"
+                                  tone="red"
+                                  onClick={() => setDeletingBanner(banner)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </IconButton>
+                              </>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* =====================================================
-          ADD / EDIT MODAL
+          ADD / REPLACE MODAL
       ===================================================== */}
 
-      {modalSection && (
+      {uploadTarget && (
         <Modal
-          title={existing ? "Edit Banner" : "Upload Banner"}
-          description="Select a section and upload the banner image."
-          onClose={closeModal}
+          title={uploadTarget.banner ? "Replace Banner" : "Add Banner"}
+          description={`${uploadSection?.label || ""} · recommended size 1920 × 600, up to ${MAX_FILE_SIZE_MB} MB.`}
+          onClose={() => !saving && closeUpload()}
           maxWidth="max-w-2xl"
         >
-          {/* Section */}
-          <div>
-            <label
-              htmlFor="banner-section"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              Banner Section
-            </label>
-
-            <select
-              id="banner-section"
-              value={modalSection}
-              onChange={handleSectionChange}
-              className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition-colors hover:border-slate-300 focus:border-red-500 focus:ring-2 focus:ring-red-500/15"
-            >
-              {BANNER_SECTIONS.map((item) => (
-                <option key={item.key} value={item.key}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Error */}
           {error && (
-            <p role="alert" className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            <p role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
             </p>
           )}
 
-          {/* Form */}
-          <form className="mt-5 space-y-5" onSubmit={handleUpload}>
+          <form className="space-y-5" onSubmit={handleUpload}>
             <div>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-slate-700">
-                  {existing ? "Current Banner" : "Banner Image"}
-                </p>
-
-                {existing && (
-                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                    Uploaded
-                  </span>
-                )}
-              </div>
-
-              {/* Upload Area */}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -645,16 +620,16 @@ export function BannerManagement() {
                     : "border-slate-300 bg-slate-50 hover:border-red-400 hover:bg-red-50/40"
                 }`}
               >
-                {preview || existing?.imageUrl ? (
+                {preview || uploadTarget.banner?.imageUrl ? (
                   <>
                     <img
-                      src={preview || getMediaUrl(existing.imageUrl)}
-                      alt={`${sectionLabel(modalSection)} banner`}
+                      src={preview || getMediaUrl(uploadTarget.banner.imageUrl)}
+                      alt={`${uploadSection?.label || ""} banner`}
                       className="absolute inset-0 h-full w-full object-cover"
                     />
 
                     <span className="absolute inset-0 flex items-center justify-center bg-slate-950/0 text-sm font-semibold text-white opacity-0 transition-all group-hover:bg-slate-950/50 group-hover:opacity-100">
-                      Click or drop to replace
+                      Click or drop to choose another image
                     </span>
                   </>
                 ) : (
@@ -668,9 +643,7 @@ export function BannerManagement() {
                       and drop
                     </p>
 
-                    <p className="mt-1 text-xs text-slate-400">
-                      Select an image for this banner section
-                    </p>
+                    <p className="mt-1 text-xs text-slate-400">JPG, PNG or WebP</p>
                   </>
                 )}
               </button>
@@ -708,46 +681,29 @@ export function BannerManagement() {
               )}
             </div>
 
-            {/* Buttons */}
-            <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:justify-between">
-              <div>
-                {existing && (
-                  <button
-                    type="button"
-                    onClick={() => setDeletingBanner(existing)}
-                    disabled={removing || saving}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-semibold text-red-600 transition-all hover:bg-red-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                  </button>
+            <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+              <button
+                type="button"
+                onClick={closeUpload}
+                disabled={saving}
+                className="h-10 rounded-lg bg-slate-100 px-4 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={!file || saving}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
                 )}
-              </div>
 
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  disabled={saving || removing}
-                  className="h-10 rounded-lg bg-slate-100 px-4 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-60"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={!file || saving || removing}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {saving ? (
-                    <LoaderCircle className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="h-4 w-4" />
-                  )}
-
-                  {existing ? "Save Changes" : "Upload Banner"}
-                </button>
-              </div>
+                {uploadTarget.banner ? "Replace Banner" : "Add Banner"}
+              </button>
             </div>
           </form>
         </Modal>
@@ -768,14 +724,11 @@ export function BannerManagement() {
       {deletingBanner && (
         <Modal
           title="Delete Banner?"
-          description={`Are you sure you want to delete the ${sectionLabel(
-            deletingBanner.title,
-          )} banner?`}
+          description={`Delete this ${sectionLabel(deletingBanner.title)} banner?`}
           onClose={() => !removing && setDeletingBanner(null)}
           maxWidth="max-w-md"
         >
           <div className="space-y-5">
-            {/* Warning */}
             <div className="rounded-xl border border-red-100 bg-red-50 p-4">
               <div className="flex gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
@@ -788,14 +741,14 @@ export function BannerManagement() {
                   </p>
 
                   <p className="mt-1 text-sm leading-5 text-red-700">
-                    The uploaded banner will be deleted and the section will automatically use its
-                    default banner again.
+                    The image is deleted. If it was the last banner of this section, the section
+                    uses its default banners again. To remove it only temporarily, hide it
+                    instead.
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Banner preview */}
             <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
               <img
                 src={getMediaUrl(deletingBanner.imageUrl)}
@@ -804,7 +757,6 @@ export function BannerManagement() {
               />
             </div>
 
-            {/* Actions */}
             <div className="flex justify-end gap-3">
               <button
                 type="button"

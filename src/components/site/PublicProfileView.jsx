@@ -15,7 +15,7 @@ import {
   ThumbsDown,
 } from "lucide-react";
 
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";

@@ -19,7 +19,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const PAGE_SIZE = 10;
@@ -492,7 +492,10 @@ export function EnquiryManagement() {
                         </p>
                       </div>
 
-                      <StatusBadge value={entry?.status} />
+                      <StatusSelect
+                        value={entry?.status || "NEW"}
+                        onChange={(next) => askStatusChange(entry, next)}
+                      />
                     </div>
 
                     {/* Card Body */}
@@ -550,11 +553,6 @@ export function EnquiryManagement() {
                         <Eye className="h-3.5 w-3.5" />
                         View Details
                       </button>
-
-                      <StatusSelect
-                        value={entry?.status || "NEW"}
-                        onChange={(next) => askStatusChange(entry, next)}
-                      />
                     </div>
                   </article>
                 );
@@ -646,7 +644,10 @@ export function EnquiryManagement() {
                           {/* Status */}
 
                           <td className="px-4 py-3.5">
-                            <StatusBadge value={entry?.status} />
+                            <StatusSelect
+                              value={entry?.status || "NEW"}
+                              onChange={(next) => askStatusChange(entry, next)}
+                            />
                           </td>
 
                           {/* Date */}
@@ -669,11 +670,6 @@ export function EnquiryManagement() {
                                 <Eye className="h-3.5 w-3.5" />
                                 View
                               </button>
-
-                              <StatusSelect
-                                value={entry?.status || "NEW"}
-                                onChange={(next) => askStatusChange(entry, next)}
-                              />
                             </div>
                           </td>
                         </tr>

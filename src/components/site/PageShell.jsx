@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
 import { SiteHeader } from "./SiteHeader";
 import { SiteFooter } from "./SiteFooter";
 import { Sidebar } from "./Sidebar";
-import { useGetGalleryImagesQuery } from "@/features/gallery/galleryApi";
-import { BANNER_QUERY } from "@/hooks/use-banners";
+import { BannerSlideshow } from "./BannerSlideshow";
+import { useBannerImages } from "@/hooks/use-banners";
 
 import banner1 from "@/assets/AICDA13-2.webp.asset.json";
 import banner2 from "@/assets/AICDA12-2.webp.asset.json";
@@ -14,43 +13,14 @@ import banner4 from "@/assets/AICDA10-2.webp.asset.json";
 import banner5 from "@/assets/AICDA9-2.webp.asset.json";
 import banner6 from "@/assets/AICDA8-2.webp.asset.json";
 import banner7 from "@/assets/AICDA6.webp.asset.json";
-import { getMediaUrl } from "../../lib/config";
 
 const BANNERS = [banner1, banner2, banner3, banner4, banner5, banner6, banner7];
 
 export function PageShell({ title, subtitle, children, hideSidebar = false, bannerKey }) {
-  const [currentBanner, setCurrentBanner] = useState(0);
-
-  // Get BANNER images directly from gallery API (a failed request falls back to the static banners)
-  const { data: bannerData } = useGetGalleryImagesQuery(BANNER_QUERY);
-  const apiBanners = bannerData?.gallery || [];
-
-  // Replace static images one-by-one with API images
-  const bannerImages = BANNERS.map((staticBanner, index) => {
-    const apiBanner = apiBanners[index];
-
-    if (apiBanner?.imageUrl) {
-      return getMediaUrl(apiBanner.imageUrl);
-    }
-
-    return staticBanner.url;
-  });
-  // Reset slideshow when banner list changes
-  useEffect(() => {
-    setCurrentBanner(0);
-  }, [apiBanners.length]);
-  // Automatic image change
-  useEffect(() => {
-    if (bannerImages.length <= 1) return;
-
-    const interval = setInterval(() => {
-      setCurrentBanner((prev) => (prev + 1) % bannerImages.length);
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [bannerImages.length]);
-
-  const bg = bannerImages[currentBanner];
+  // Only this page's own banners (visible ones, in the admin's order). With none
+  // uploaded, the built-in banners are shown instead.
+  const sectionBanners = useBannerImages(bannerKey);
+  const bannerImages = sectionBanners.length ? sectionBanners : BANNERS.map((banner) => banner.url);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -71,54 +41,14 @@ export function PageShell({ title, subtitle, children, hideSidebar = false, bann
             lg:h-[400px]
           "
         >
-          {/* Current Banner */}
-          <motion.div
-            key={currentBanner}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{
-              duration: 1,
-              ease: "easeInOut",
-            }}
-            className="
-              absolute
-              inset-0
-              bg-cover
-              bg-center
-              bg-no-repeat
-            "
-            style={{
-              backgroundImage: `url(${bg})`,
-            }}
-            aria-hidden="true"
-          />
+          {/* Banner images (cross-fade + dots when there is more than one) */}
+          <BannerSlideshow images={bannerImages} />
 
           {/* Dark overlay */}
           <div className="absolute inset-0 bg-black/25" />
 
           {/* Bottom fade */}
           <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/40 to-transparent" />
-
-          {/* Optional slider dots */}
-          {bannerImages.length > 1 && (
-            <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 gap-2">
-              {bannerImages.map((_, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={() => setCurrentBanner(index)}
-                  aria-label={`Go to banner ${index + 1}`}
-                  className={`
-                    h-2
-                    rounded-full
-                    transition-all
-                    duration-300
-                    ${currentBanner === index ? "w-7 bg-white" : "w-2 bg-white/60 hover:bg-white"}
-                  `}
-                />
-              ))}
-            </div>
-          )}
         </div>
 
         {/* =================================================

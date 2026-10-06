@@ -31,22 +31,30 @@ export function formatCalendarDate(value) {
   });
 }
 
-// Top-right badge on a profile card: green thumbs-up when active, red
-// thumbs-down when inactive. The parent card must be `relative`.
+// Status pill for the top-right of an information card: green thumbs-up when
+// active, red thumbs-down when inactive.
 export function ProfileStatusThumb({ active }) {
   const Icon = active ? ThumbsUp : ThumbsDown;
+  const label = active ? "Active" : "Inactive";
 
   return (
     <span
-      title={active ? "Active" : "Inactive"}
-      aria-label={active ? "Active" : "Inactive"}
-      className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full shadow-sm ring-1 ${
+      title={label}
+      aria-label={label}
+      className={`inline-flex shrink-0 items-center gap-2 rounded-full py-1 pl-1 pr-3 text-xs font-bold shadow-sm ring-1 ${
         active
-          ? "bg-emerald-50 text-emerald-600 ring-emerald-200"
-          : "bg-red-50 text-red-600 ring-red-200"
+          ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+          : "bg-red-50 text-red-700 ring-red-200"
       }`}
     >
-      <Icon className={`h-[18px] w-[18px] ${active ? "fill-emerald-500" : "fill-red-500"}`} />
+      <span
+        className={`flex h-7 w-7 items-center justify-center rounded-full ${
+          active ? "bg-emerald-500 text-white" : "bg-red-500 text-white"
+        }`}
+      >
+        <Icon className="h-3.5 w-3.5 fill-current" />
+      </span>
+      {label}
     </span>
   );
 }

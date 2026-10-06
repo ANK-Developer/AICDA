@@ -8,6 +8,7 @@ import {
 import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppLink as Link } from "@/components/common/AppLink";
+import { useGoBack } from "@/hooks/use-go-back";
 import {
   ArrowLeft,
   CalendarDays,
@@ -300,6 +301,12 @@ export function PartnerDetails({ slug }) {
   /* Derived values                                                            */
   /* ------------------------------------------------------------------------ */
 
+  const goBack = useGoBack(
+    partner?.member
+      ? `/admin/directory/${encodeURIComponent(buildMemberSlug(partner.member))}/details`
+      : "/admin/directory",
+  );
+
   const isEffectivelyActive = partner ? Boolean(partner.isActive) && !isExpired(partner) : false;
 
   const validityHint = partner ? expiryLabel(daysRemaining(partner)) : null;
@@ -462,28 +469,15 @@ export function PartnerDetails({ slug }) {
 
       <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div>
-          {partner?.member ? (
-            <Link
-              to="/admin/directory/$slug/details"
-              params={{
-                slug: buildMemberSlug(partner.member),
-              }}
-              className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-red-50 hover:text-red-700"
-            >
-              <ArrowLeft className="h-4 w-4" />
+          <button
+            type="button"
+            onClick={goBack}
+            className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-red-50 hover:text-red-700"
+          >
+            <ArrowLeft className="h-4 w-4" />
 
-              <span className="truncate">Back to {safeText(partner.member.memberName)}</span>
-            </Link>
-          ) : (
-            <Link
-              to="/admin/directory"
-              className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-red-50 hover:text-red-700"
-            >
-              <ArrowLeft className="h-4 w-4" />
-
-              <span>Back to Directory</span>
-            </Link>
-          )}
+            <span>Back</span>
+          </button>
         </div>
 
         {partner && (
@@ -565,8 +559,6 @@ export function PartnerDetails({ slug }) {
             {/* ------------------------------------------------------------ */}
 
             <aside className="relative rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <ProfileStatusThumb active={isEffectivelyActive} />
-
               <div className="flex flex-col items-center">
                 {partner.photo ? (
                   <img
@@ -628,6 +620,7 @@ export function PartnerDetails({ slug }) {
                 <SectionHeader
                   title="Partner Information"
                   description="Personal, professional and validity details"
+                  action={<ProfileStatusThumb active={isEffectivelyActive} />}
                 />
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">

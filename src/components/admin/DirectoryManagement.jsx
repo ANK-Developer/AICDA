@@ -340,8 +340,11 @@ export function DirectoryManagement() {
         if (isStale()) return;
 
         if (partnerResults.length === 1) {
+          // `replace` so Back from the partner page skips this search URL, which
+          // would otherwise redirect straight to the partner again.
           navigate(
             `/admin/directory/partner/${encodeURIComponent(buildPartnerSlug(partnerResults[0]))}/details`,
+            { replace: true },
           );
           return;
         }

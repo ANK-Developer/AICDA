@@ -35,6 +35,12 @@ export const superAdminsApi = baseApi.injectEndpoints({
       }),
       transformResponse: unwrapData,
     }),
+
+    // A mutation (not a query) so the revealed password is never kept in the RTK cache.
+    revealSuperAdminPassword: builder.mutation({
+      query: (id) => ({ url: `/super-admin/${id}/reveal-password`, method: "POST" }),
+      transformResponse: unwrapData,
+    }),
   }),
 });
 
@@ -44,4 +50,5 @@ export const {
   useCreateSuperAdminMutation,
   useUpdateSuperAdminStatusMutation,
   useResetSuperAdminPasswordMutation,
+  useRevealSuperAdminPasswordMutation,
 } = superAdminsApi;

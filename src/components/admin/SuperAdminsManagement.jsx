@@ -1,6 +1,7 @@
 import {
   useCreateSuperAdminMutation,
   useLazyGetSuperAdminsQuery,
+  useRevealSuperAdminPasswordMutation,
   useUpdateSuperAdminStatusMutation,
 } from "@/features/superAdmins/superAdminsApi";
 import { useLazyCall, useMutate } from "@/services/api/useApiCall";
@@ -18,12 +19,72 @@ import {
   Users,
   X,
   AlertTriangle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 import { toast } from "react-toastify";
 
 import { FieldRow, inputClass } from "./directory-shared";
 import { ChangePasswordModal } from "./ChangePasswordModal";
+
+// Shows "••••••" until the eye is clicked, then fetches the password from the
+// server on demand. It is held only in this component's state and is dropped
+// again when hidden.
+function PasswordCell({ adminId }) {
+  const revealPassword = useMutate(useRevealSuperAdminPasswordMutation);
+  const [password, setPassword] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const toggle = async () => {
+    if (password !== null) {
+      setPassword(null);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const data = await revealPassword(adminId);
+      setPassword(data?.password ?? "");
+    } catch (requestError) {
+      toast.error(requestError?.message || "Could not load password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const visible = password !== null;
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="max-w-[160px] truncate font-mono text-sm text-slate-700">
+        {visible ? password : "••••••••"}
+      </span>
+
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={loading}
+        aria-label={visible ? "Hide password" : "Show password"}
+        className="
+          flex h-8 w-8 shrink-0 items-center justify-center
+          rounded-lg text-slate-500 transition-colors
+          hover:bg-red-50 hover:text-red-700
+          disabled:cursor-not-allowed disabled:opacity-50
+        "
+      >
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : visible ? (
+          <EyeOff className="h-4 w-4" />
+        ) : (
+          <Eye className="h-4 w-4" />
+        )}
+      </button>
+    </div>
+  );
+}
 
 export function SuperAdminsManagement() {
   const getSuperAdmins = useLazyCall(useLazyGetSuperAdminsQuery);
@@ -317,7 +378,7 @@ export function SuperAdminsManagement() {
                       "
                     >
                       {/* ROLE */}
-                      <div className="flex items-center gap-2 text-xs text-slate-600">
+                      {/* <div className="flex items-center gap-2 text-xs text-slate-600">
                         <ShieldCheck className="h-4 w-4 text-red-600" />
 
                         <span>
@@ -326,7 +387,7 @@ export function SuperAdminsManagement() {
                             {superAdmin.role || "SUPER_ADMIN"}
                           </strong>
                         </span>
-                      </div>
+                      </div> */}
 
                       {/* PHONE */}
                       {superAdmin.phone && (
@@ -341,10 +402,11 @@ export function SuperAdminsManagement() {
                     {/* PASSWORD */}
                     <div
                       className="
-                        mt-3 flex justify-end
+                        mt-3 flex items-center justify-between gap-3
                         border-t border-slate-100 pt-3
                       "
                     >
+                      <PasswordCell adminId={getAdminId(superAdmin)} />
                       <button
                         type="button"
                         onClick={() => setPasswordResetTarget(superAdmin)}
@@ -370,7 +432,7 @@ export function SuperAdminsManagement() {
                 DESKTOP VIEW
             ================================================== */}
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[720px] text-left">
+              <table className="w-full min-w-[860px] text-left">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50">
                     <th
@@ -391,13 +453,22 @@ export function SuperAdminsManagement() {
                       Contact
                     </th>
 
-                    <th
+                    {/* <th
                       className="
                         px-5 py-3 text-xs font-bold
                         uppercase tracking-wide text-slate-500
                       "
                     >
                       Role
+                    </th> */}
+
+                    <th
+                      className="
+                        px-5 py-3 text-xs font-bold
+                        uppercase tracking-wide text-slate-500
+                      "
+                    >
+                      Password
                     </th>
 
                     <th
@@ -497,7 +568,7 @@ export function SuperAdminsManagement() {
                         </td>
 
                         {/* ROLE */}
-                        <td className="px-5 py-4">
+                        {/* <td className="px-5 py-4">
                           <span
                             className="
                               inline-flex items-center
@@ -511,6 +582,11 @@ export function SuperAdminsManagement() {
 
                             {superAdmin.role || "SUPER_ADMIN"}
                           </span>
+                        </td> */}
+
+                        {/* PASSWORD */}
+                        <td className="px-5 py-4">
+                          <PasswordCell adminId={getAdminId(superAdmin)} />
                         </td>
 
                         {/* STATUS */}

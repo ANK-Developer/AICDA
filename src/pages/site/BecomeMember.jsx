@@ -79,6 +79,7 @@ function Page() {
     <PageShell
       title="Become a Member"
       subtitle="Apply for AICDA membership or send us a request — we'll get back to you."
+      bannerKey="become-member"
     >
       <div
         id="enquiry-form"

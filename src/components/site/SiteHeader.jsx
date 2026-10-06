@@ -2,26 +2,10 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import { Menu, X, Phone, Mail } from "lucide-react";
 import { primaryNav } from "./nav-data";
-import { useBanner } from "@/hooks/use-banners";
 import aicdaLogo from "@/assets/Aicda logo.png";
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
-  const becomeMemberBanner = useBanner("become-member");
-  const becomeMemberStyle = becomeMemberBanner
-    ? {
-        backgroundImage: `linear-gradient(0deg, rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url(${becomeMemberBanner})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }
-    : undefined;
-  const becomeMemberStyleLight = becomeMemberBanner
-    ? {
-        backgroundImage: `linear-gradient(0deg, rgba(255,255,255,0.7), rgba(255,255,255,0.7)), url(${becomeMemberBanner})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }
-    : undefined;
   return (
     <header className="sticky top-0 z-50 shadow-[var(--shadow-elegant)]">
       {/* <div className="bg-background text-foreground text-[11px] border-b border-border">
@@ -60,7 +44,6 @@ export function SiteHeader() {
             <span className="opacity-70">RTO Form | Registration No. - S-55924/2006</span>
             <Link
               to="/become-member#enquiry-form"
-              style={becomeMemberStyle}
               className="rounded-md bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary-deep"
             >
               Enquiry
@@ -94,7 +77,6 @@ export function SiteHeader() {
               <Link
                 to="/become-member#enquiry-form"
                 onClick={() => setOpen(false)}
-                style={becomeMemberStyleLight}
                 className="block rounded-md bg-primary-foreground px-3 py-2 text-center text-sm font-semibold text-primary hover:opacity-90"
               >
                 Enquiry

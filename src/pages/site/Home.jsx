@@ -13,7 +13,8 @@ import {
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { Sidebar } from "@/components/site/Sidebar";
-import { useBanner } from "@/hooks/use-banners";
+import { BannerSlideshow } from "@/components/site/BannerSlideshow";
+import { useBannerImages } from "@/hooks/use-banners";
 import heroBanner from "@/assets/AICDA8-2.webp.asset.json";
 import aicdaLogo from "@/assets/logoAICDA.png";
 import { useGetDashboardDataQuery } from "@/features/dashboard/dashboardApi";
@@ -26,8 +27,9 @@ function Index() {
   const image = dashboardData?.image;
   const politicalAchievement = dashboardData?.politicalAchievement;
 
-  const adminHeroBanner = useBanner("home");
-  const heroBannerUrl = adminHeroBanner || heroBanner.url;
+  // Visible "home" banners in the admin's order; the built-in banner when none are uploaded.
+  const homeBanners = useBannerImages("home");
+  const heroImages = homeBanners.length ? homeBanners : [heroBanner.url];
   const features = [
     {
       icon: Users,
@@ -56,11 +58,7 @@ function Index() {
       <SiteHeader />
 
       <section className="relative overflow-hidden text-primary-foreground">
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: `url(${heroBannerUrl})` }}
-          aria-hidden
-        />
+        <BannerSlideshow images={heroImages} />
         <div className="absolute inset-0 bg-[image:var(--gradient-hero)] opacity-30" aria-hidden />
         <div
           className="absolute inset-0 bg-linear-to-t from-black/60 via-black/10 to-transparent"

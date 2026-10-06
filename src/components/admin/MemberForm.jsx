@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 
 import { getDistrictsForStateName } from "@/lib/india-districts";
 
@@ -305,7 +305,7 @@ export function MemberForm({ member, onCancel, onSaved }) {
       }
 
       toast.error(message, {
-        duration: 6000,
+        autoClose: 6000,
       });
     } finally {
       setSaving(false);

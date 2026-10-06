@@ -22,7 +22,8 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
+import { confirmToast } from "@/lib/confirm-toast";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -361,7 +362,9 @@ export function DirectoryManagement() {
       if (statsResult) setStats(statsResult);
     } catch (requestError) {
       if (isStale()) return;
-      setListError(requestError.message || "Could not load members.");
+      const message = requestError.message || "Could not load members.";
+      setListError(message);
+      toast.error(message);
     } finally {
       if (!isStale()) setLoading(false);
     }
@@ -410,16 +413,10 @@ export function DirectoryManagement() {
   };
 
   const deleteMember = (member) => {
-    toast(`Remove ${member.memberName || "this member"} from the directory?`, {
+    confirmToast({
+      title: `Remove ${member.memberName || "this member"} from the directory?`,
       description: "This action cannot be undone.",
-      action: {
-        label: "Delete",
-        onClick: () => performDelete(member),
-      },
-      cancel: {
-        label: "Cancel",
-        onClick: () => {},
-      },
+      onConfirm: () => performDelete(member),
     });
   };
 

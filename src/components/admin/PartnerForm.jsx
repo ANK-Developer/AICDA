@@ -9,7 +9,7 @@ import { Image as ImageIcon } from "lucide-react";
 
 import { getDistrictsForStateName } from "@/lib/india-districts";
 
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 
 import {
   CityCombobox,

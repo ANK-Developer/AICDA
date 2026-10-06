@@ -30,7 +30,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { toJpeg } from "html-to-image";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { getMediaUrl } from "@/lib/config";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -244,8 +244,10 @@ export function MemberDetails({ slug }) {
         }
       } catch (requestError) {
         if (mounted) {
+          const message = requestError?.message || "Could not load this member.";
           setMember(null);
-          setError(requestError?.message || "Could not load this member.");
+          setError(message);
+          toast.error(message);
         }
       } finally {
         if (mounted) {

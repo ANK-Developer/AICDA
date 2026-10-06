@@ -19,7 +19,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const PAGE_SIZE = 10;

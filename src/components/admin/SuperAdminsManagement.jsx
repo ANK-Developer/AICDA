@@ -808,11 +808,10 @@ export function SuperAdminsManagement() {
                 </FieldRow>
 
                 {/* LAST NAME */}
-                <FieldRow label="Last name" required>
+                <FieldRow label="Last name">
                   <input
                     name="lastName"
                     type="text"
-                    required
                     autoComplete="family-name"
                     placeholder="Enter last name"
                     className={`
@@ -866,7 +865,7 @@ export function SuperAdminsManagement() {
                 </FieldRow>
 
                 {/* PHONE */}
-                <FieldRow label="Phone number" required>
+                <FieldRow label="Phone number">
                   <div className="relative">
                     <Phone
                       className="
@@ -881,7 +880,6 @@ export function SuperAdminsManagement() {
                     <input
                       name="phone"
                       type="tel"
-                      required
                       autoComplete="tel"
                       placeholder="Enter phone number"
                       className={`

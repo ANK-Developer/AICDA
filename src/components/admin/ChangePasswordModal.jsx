@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "react-toastify";
 import { useChangePasswordMutation } from "@/features/auth/authApi";
 import { useResetSuperAdminPasswordMutation } from "@/features/superAdmins/superAdminsApi";
 
@@ -40,8 +41,11 @@ export function ChangePasswordModal({ onClose, defaultEmail, superAdminId }) {
         await changePassword({ email: email.trim(), newPassword, confirmPassword }).unwrap();
       }
       setSuccess(true);
+      toast.success("Password updated successfully.");
     } catch (requestError) {
-      setError(requestError.message || "Could not update password.");
+      const message = requestError.message || "Could not update password.";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }

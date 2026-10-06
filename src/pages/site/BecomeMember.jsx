@@ -2,7 +2,7 @@ import { withPageMeta } from "@/components/common/withPageMeta";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { CheckCircle2, LoaderCircle } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { PageShell } from "@/components/site/PageShell";
 import { Prose } from "@/components/site/ContentBlocks";
 import { Input } from "@/components/ui/input";
@@ -67,7 +67,9 @@ function Page() {
       setForm(emptyForm);
       toast.success("Your request has been submitted. We'll be in touch soon.");
     } catch (requestError) {
-      setError(requestError.message || "Unable to submit your request. Please try again.");
+      const message = requestError.message || "Unable to submit your request. Please try again.";
+      setError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }

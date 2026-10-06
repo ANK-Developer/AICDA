@@ -2,7 +2,7 @@ import { withPageMeta } from "@/components/common/withPageMeta";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, Loader2, Share2, ThumbsDown, ThumbsUp, User } from "lucide-react";
 import { toCanvas } from "html-to-image";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { PageShell } from "@/components/site/PageShell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

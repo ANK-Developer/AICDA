@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { useLoginMutation } from "@/features/auth/authApi";
 
 export default function Login() {
@@ -13,6 +13,7 @@ export default function Login() {
     event.preventDefault();
     try {
       await login({ email, password }).unwrap();
+      toast.success("Signed in successfully.");
       navigate("/admin");
     } catch (requestError) {
       toast.error(requestError.message || "Unable to sign in. Please try again.");

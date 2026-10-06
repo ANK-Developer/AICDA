@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Eye, ImageOff, LoaderCircle, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
 
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 
 import {
   useDeleteGalleryImageMutation,

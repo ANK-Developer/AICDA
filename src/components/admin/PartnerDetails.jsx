@@ -25,7 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { toJpeg } from "html-to-image";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMediaUrl } from "@/lib/config";
 
@@ -244,6 +244,7 @@ export function PartnerDetails({ slug }) {
         const message = requestError?.message || "Could not load this partner.";
 
         setError(message);
+        toast.error(message);
         setPartner(null);
 
         throw requestError;

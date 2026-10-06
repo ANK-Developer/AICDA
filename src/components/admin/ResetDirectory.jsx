@@ -415,15 +415,22 @@ export function ResetDirectory() {
     setDesignationError("");
 
     try {
-      const payload = {
-        ...designationTarget,
-        designation: designationValue.trim(),
-      };
+      const designation = designationValue.trim();
 
+      // Only the designation is sent. Re-sending the whole record would re-save
+      // every field (dates, photo path, location objects) and trip validation.
+      // The member update API additionally requires the member's ID and name.
       if (tab === "members") {
-        await updateMember({ id: designationTarget.id, member: payload });
+        await updateMember({
+          id: designationTarget.id,
+          member: {
+            memberId: designationTarget.memberId,
+            memberName: designationTarget.memberName,
+            designation,
+          },
+        });
       } else {
-        await updatePartner({ id: designationTarget.id, partner: payload });
+        await updatePartner({ id: designationTarget.id, partner: { designation } });
       }
 
       await load();

@@ -10,6 +10,7 @@ import { Image as ImageIcon } from "lucide-react";
 import { getDistrictsForStateName } from "@/lib/india-districts";
 
 import { toast } from "react-toastify";
+import { todayIST } from "./RenewPeriodFields";
 
 import {
   CityCombobox,
@@ -47,6 +48,7 @@ function buildInitialForm(partner, lockedMember) {
       district: lockedMember?.district || "",
       city: lockedMember?.city?.cityName || lockedMember?.city || "",
       dateOfJoining: "",
+      validityFrom: todayIST(),
       validityTo: "",
       amount: "",
       note: "",
@@ -74,6 +76,7 @@ function buildInitialForm(partner, lockedMember) {
     district: partner.district || "",
     city: partner.city?.cityName || partner.city || "",
     dateOfJoining: partner.dateOfJoining ? partner.dateOfJoining.slice(0, 10) : "",
+    validityFrom: "",
     validityTo: partner.validityTo ? partner.validityTo.slice(0, 10) : "",
     amount: "",
     note: "",
@@ -630,18 +633,21 @@ export function PartnerForm({ partner, members = [], lockedMember, onCancel, onS
       {/* ==================== MEMBERSHIP & PAYMENT ==================== */}
       <FormSection
         title="Membership & Payment"
-        description="Manage joining date, validity and payment information."
+        description="Manage validity and payment information."
       >
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 lg:grid-cols-3">
-          {/* Date of Joining */}
-          <FieldRow label="Valid From">
-            <input
-              type="date"
-              value={form.dateOfJoining}
-              onChange={(e) => updateField("dateOfJoining", e.target.value)}
-              className={inputClass}
-            />
-          </FieldRow>
+          {/* Plan start (new partners only) */}
+          {!isEdit && (
+            <FieldRow label="Valid From">
+              <input
+                type="date"
+                value={form.validityFrom}
+                max={todayIST()}
+                onChange={(e) => updateField("validityFrom", e.target.value)}
+                className={inputClass}
+              />
+            </FieldRow>
+          )}
 
           {/* Validity */}
           <FieldRow label="Validity To">

@@ -1,26 +1,18 @@
 import { useLazyGetMembersQuery } from "@/features/members/membersApi";
 import {
   useDeletePartnerMutation,
-  useLazyGetPartnersQuery,
+  useLazyGetPartnersPageQuery,
   useRenewPartnerMutation,
   useTogglePartnerStatusMutation,
 } from "@/features/partners/partnersApi";
 import { useLazyCall, useMutate } from "@/services/api/useApiCall";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppLink as Link } from "@/components/common/AppLink";
 import { ArrowLeft, Eye, Link2, Pencil, RefreshCw, Search, Trash2, Users } from "lucide-react";
 import { toast } from "react-toastify";
 import { confirmToast } from "@/lib/confirm-toast";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { StatusChangeDialog } from "./StatusChangeDialog";
+import { renewDefaults, ValidFromField } from "./RenewPeriodFields";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   buildPartnerSlug,
@@ -31,7 +23,10 @@ import {
   inputClass,
   isExpired,
   isExpiringSoon,
+  statusTitle,
+  statusToggleBlocker,
   isTodayOrPast,
+  STATUS_FILTERS,
   StatusToggle,
 } from "./directory-shared";
 import { DirectoryTableSkeleton } from "./DirectoryManagement";
@@ -39,13 +34,7 @@ import { PartnerForm } from "./PartnerForm";
 
 const PAGE_SIZE = 10;
 
-const FILTERS = [
-  { value: "all", label: "All" },
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
-  { value: "expiring", label: "Expiring Soon" },
-  { value: "expired", label: "Expired" },
-];
+const SEARCH_DEBOUNCE_MS = 400;
 
 function PartnerCardSkeleton() {
   return (
@@ -71,17 +60,20 @@ function PartnerCardSkeleton() {
 
 export function PartnerDirectory() {
   const getMembers = useLazyCall(useLazyGetMembersQuery);
-  const getPartners = useLazyCall(useLazyGetPartnersQuery);
+  const getPartnersPage = useLazyCall(useLazyGetPartnersPageQuery);
   const deletePartnerRequest = useMutate(useDeletePartnerMutation);
   const togglePartnerStatus = useMutate(useTogglePartnerStatusMutation);
   const renewPartner = useMutate(useRenewPartnerMutation);
   const [members, setMembers] = useState([]);
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 1 });
+  const latestRequestId = useRef(0);
 
   const [showForm, setShowForm] = useState(false);
   const [editingPartner, setEditingPartner] = useState(null);
   const [listError, setListError] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
@@ -89,71 +81,72 @@ export function PartnerDirectory() {
   const [renewTarget, setRenewTarget] = useState(null);
   const [renewDate, setRenewDate] = useState("");
   const [renewAmount, setRenewAmount] = useState("");
+  const [renewFrom, setRenewFrom] = useState("");
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState("");
 
   const [statusConfirmTarget, setStatusConfirmTarget] = useState(null);
   const [statusUpdating, setStatusUpdating] = useState(false);
 
+  // Partners are searched, filtered and paginated by the backend. Only the most
+  // recently started request may commit, so a slow older response can never
+  // overwrite what the admin is looking at now.
   const loadAll = async () => {
+    const requestId = ++latestRequestId.current;
+    const isStale = () => requestId !== latestRequestId.current;
+
     setLoading(true);
     setListError("");
     try {
-      const [membersResult, partnersResult] = await Promise.all([
-        getMembers({ limit: 1000 }),
-        getPartners({ limit: 1000 }),
-      ]);
-      setMembers(membersResult.members);
-      setPartners(partnersResult);
+      const result = await getPartnersPage({
+        search,
+        status: statusFilter,
+        page,
+        limit: PAGE_SIZE,
+      });
+      if (isStale()) return;
+      // The last row of the last page was removed — step back to the new last page.
+      if (result.partners.length === 0 && page > 1 && result.pagination.total > 0) {
+        setPage(Math.max(1, result.pagination.totalPages));
+        return;
+      }
+      setPartners(result.partners);
+      setPagination(result.pagination);
     } catch (requestError) {
+      if (isStale()) return;
       const message = requestError.message || "Could not load partners.";
       setListError(message);
       toast.error(message);
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   };
 
+  // Members are only needed to pick the partner's member in the form.
   useEffect(() => {
-    loadAll();
+    getMembers({ limit: 1000 })
+      .then((result) => setMembers(result.members))
+      .catch((requestError) => toast.error(requestError.message || "Could not load members."));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return partners.filter((partner) => {
-      const matchesQuery =
-        !query ||
-        [
-          partner.partnerId,
-          partner.partnerName,
-          partner.companyName,
-          partner.state?.stateName || partner.state,
-          partner.city?.cityName || partner.city,
-          partner.mobile,
-          partner.designation,
-          partner.member?.memberName,
-          partner.member?.memberId,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase()
-          .includes(query);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, SEARCH_DEBOUNCE_MS);
 
-      const isEffectivelyActive = partner.isActive && !isExpired(partner);
-      const matchesStatus =
-        statusFilter === "all" ||
-        (statusFilter === "active" && isEffectivelyActive) ||
-        (statusFilter === "inactive" && !isEffectivelyActive) ||
-        (statusFilter === "expiring" && isExpiringSoon(partner)) ||
-        (statusFilter === "expired" && isExpired(partner));
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
-      return matchesQuery && matchesStatus;
-    });
-  }, [partners, search, statusFilter]);
+  useEffect(() => {
+    loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, statusFilter, page]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const pageRows = partners;
+  const currentPage = pagination.page;
+  const totalPages = pagination.totalPages;
 
   const editPartner = (partner) => {
     setEditingPartner(partner);
@@ -182,22 +175,30 @@ export function PartnerDirectory() {
     }
   };
 
+  // Manual Active / Inactive (with a reason). Plan expiry is separate and is
+  // shown from the backend's membership status.
   const toggleStatus = (partner) => {
-    if (isExpired(partner)) {
-      toast(`${partner.partnerName || "This partner"} is expired — use Renew to make them active.`);
+    const blocker = statusToggleBlocker(partner, partner.partnerName || "This partner");
+    if (blocker) {
+      toast(blocker);
       return;
     }
     setStatusConfirmTarget(partner);
   };
 
-  const confirmToggleStatus = async () => {
+  const confirmToggleStatus = async (isActive, reason) => {
     if (!statusConfirmTarget) return;
 
     setStatusUpdating(true);
 
     try {
-      await togglePartnerStatus(statusConfirmTarget.id);
+      await togglePartnerStatus({ id: statusConfirmTarget.id, isActive, reason });
       await loadAll();
+      toast.success(
+        isActive
+          ? `${statusConfirmTarget.partnerName || "Partner"} activated.`
+          : `${statusConfirmTarget.partnerName || "Partner"} deactivated.`,
+      );
       setStatusConfirmTarget(null);
     } catch (requestError) {
       const message = requestError.message || "Could not update partner status.";
@@ -230,6 +231,8 @@ export function PartnerDirectory() {
     setRenewTarget(partner);
     setRenewDate(partner.validityTo ? partner.validityTo.slice(0, 10) : "");
     setRenewAmount("");
+    const defaults = renewDefaults(partner);
+    setRenewFrom(defaults.from);
     setRenewError("");
   };
 
@@ -237,6 +240,7 @@ export function PartnerDirectory() {
     setRenewTarget(null);
     setRenewDate("");
     setRenewAmount("");
+    setRenewFrom("");
     setRenewError("");
   };
 
@@ -250,6 +254,10 @@ export function PartnerDirectory() {
       setRenewError("Validity date must be after today.");
       return;
     }
+    if (!renewFrom) {
+      setRenewError("Choose the Valid From date.");
+      return;
+    }
     if (renewAmount && Number(renewAmount) < 0) {
       setRenewError("Amount cannot be negative.");
       return;
@@ -259,6 +267,7 @@ export function PartnerDirectory() {
     try {
       await renewPartner({
         id: renewTarget.id,
+        validityFrom: renewFrom,
         validityTo: renewDate,
         amount: renewAmount ? Number(renewAmount) : undefined,
       });
@@ -311,7 +320,7 @@ export function PartnerDirectory() {
         <div className="rounded-[3px] border border-slate-300 bg-white p-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter partners">
-              {FILTERS.map((filter) => (
+              {STATUS_FILTERS.map((filter) => (
                 <button
                   key={filter.value}
                   type="button"
@@ -334,11 +343,8 @@ export function PartnerDirectory() {
               <span className="relative">
                 <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 <input
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
-                  }}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Partner ID, name, member, mobile, or company…"
                   className="h-8 w-full rounded-[3px] border border-slate-300 py-1 pl-7 pr-2 text-[13px] sm:w-72"
                 />
@@ -388,7 +394,7 @@ export function PartnerDirectory() {
                             active={isEffectivelyActive}
                             onClick={() => toggleStatus(partner)}
                             title={
-                              isExpired(partner) ? "Expired — use Renew to activate" : undefined
+                              statusTitle(partner)
                             }
                           />
                         </div>
@@ -496,7 +502,7 @@ export function PartnerDirectory() {
                               active={isEffectivelyActive}
                               onClick={() => toggleStatus(partner)}
                               title={
-                                isExpired(partner) ? "Expired — use Renew to activate" : undefined
+                                statusTitle(partner)
                               }
                             />
                           </td>
@@ -550,11 +556,11 @@ export function PartnerDirectory() {
             </>
           )}
 
-          {filtered.length > 0 && (
+          {pagination.total > 0 && (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[13px] text-slate-500">
               <p>
                 Showing {(currentPage - 1) * PAGE_SIZE + 1}–
-                {Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}
+                {Math.min(currentPage * PAGE_SIZE, pagination.total)} of {pagination.total}
               </p>
               <div className="flex gap-2">
                 <button
@@ -597,6 +603,12 @@ export function PartnerDirectory() {
             <p className="mt-1 text-sm text-slate-500">
               {renewTarget.partnerName || "This partner"} — set the new validity date.
             </p>
+            <ValidFromField
+              record={renewTarget}
+              value={renewFrom}
+              onChange={setRenewFrom}
+              disabled={renewing}
+            />
             <label className="mt-4 block text-[13px] font-semibold text-slate-700">
               New Validity To
               <input
@@ -644,37 +656,14 @@ export function PartnerDirectory() {
         </div>
       )}
 
-      <AlertDialog
-        open={statusConfirmTarget != null}
-        onOpenChange={(open) => {
-          if (!open && !statusUpdating) setStatusConfirmTarget(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {statusConfirmTarget?.isActive ? "Deactivate partner?" : "Activate partner?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {statusConfirmTarget?.isActive
-                ? `${statusConfirmTarget?.partnerName || "This partner"} will be marked Inactive and hidden from the public directory.`
-                : `${statusConfirmTarget?.partnerName || "This partner"} will be marked Active and shown in the public directory.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={statusUpdating}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                confirmToggleStatus();
-              }}
-              disabled={statusUpdating}
-            >
-              {statusUpdating ? "Updating…" : "Confirm"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <StatusChangeDialog
+        target={statusConfirmTarget}
+        noun="partner"
+        name={statusConfirmTarget?.partnerName}
+        updating={statusUpdating}
+        onConfirm={confirmToggleStatus}
+        onClose={() => setStatusConfirmTarget(null)}
+      />
     </section>
   );
 }

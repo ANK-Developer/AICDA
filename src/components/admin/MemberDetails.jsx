@@ -9,6 +9,7 @@ import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useRef, useState } from "react";
 import { AppLink as Link } from "@/components/common/AppLink";
 import { useGoBack } from "@/hooks/use-go-back";
+import { renewDefaults, ValidFromField } from "./RenewPeriodFields";
 import {
   ArrowLeft,
   CalendarDays,
@@ -47,6 +48,7 @@ import {
   isTodayOrPast,
   parseMemberSlug,
   StatusBadge,
+  InactiveReasonNote,
 } from "./directory-shared";
 
 import { MemberPrintableForm } from "./MemberPrintableForm";
@@ -203,6 +205,7 @@ export function MemberDetails({ slug }) {
   const [showRenew, setShowRenew] = useState(false);
   const [renewDate, setRenewDate] = useState("");
   const [renewAmount, setRenewAmount] = useState("");
+  const [renewFrom, setRenewFrom] = useState("");
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState("");
 
@@ -377,6 +380,8 @@ export function MemberDetails({ slug }) {
     setRenewDate(member.validityTo ? String(member.validityTo).slice(0, 10) : "");
 
     setRenewAmount("");
+    const defaults = renewDefaults(member);
+    setRenewFrom(defaults.from);
     setRenewError("");
     setShowRenew(true);
   };
@@ -406,6 +411,10 @@ export function MemberDetails({ slug }) {
       setRenewError("Validity date must be after today.");
       return;
     }
+    if (!renewFrom) {
+      setRenewError("Choose the Valid From date.");
+      return;
+    }
 
     if (renewAmount !== "") {
       const amount = Number(renewAmount);
@@ -427,6 +436,7 @@ export function MemberDetails({ slug }) {
     try {
       await renewMember({
         id: member.id,
+        validityFrom: renewFrom,
         validityTo: renewDate,
         amount: renewAmount !== "" ? Number(renewAmount) : undefined,
       });
@@ -589,6 +599,7 @@ export function MemberDetails({ slug }) {
 
               <div className="mt-3">
                 <StatusBadge active={isEffectivelyActive} />
+                <InactiveReasonNote record={member} />
               </div>
             </div>
 
@@ -668,7 +679,7 @@ export function MemberDetails({ slug }) {
 
                 <InfoRow
                   label="Valid From"
-                  value={formatDate(member.dateOfJoining)}
+                  value={formatDate(member.validityFrom)}
                   icon={CalendarDays}
                 />
 
@@ -1158,6 +1169,14 @@ export function MemberDetails({ slug }) {
                   </span>
                 </div>
               </div>
+
+              {/* Payment date and plan start */}
+              <ValidFromField
+                record={member}
+                value={renewFrom}
+                onChange={setRenewFrom}
+                disabled={renewing}
+              />
 
               {/* New Validity */}
               <div>

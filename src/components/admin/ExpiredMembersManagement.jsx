@@ -3,15 +3,7 @@ import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Search } from "lucide-react";
 import { toast } from "react-toastify";
-
-function isExpired(validityTo) {
-  if (!validityTo) return false;
-  const expiry = new Date(validityTo);
-  if (Number.isNaN(expiry.getTime())) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return expiry < today;
-}
+import { isExpired } from "./directory-shared";
 
 function formatDate(value) {
   if (!value) return "—";
@@ -45,7 +37,7 @@ export function ExpiredMembersManagement() {
   }, [getMembers]);
 
   const expiredMembers = useMemo(
-    () => members.filter((member) => isExpired(member.validityTo)),
+    () => members.filter(isExpired),
     [members],
   );
 

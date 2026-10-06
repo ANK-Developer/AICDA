@@ -24,16 +24,8 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { confirmToast } from "@/lib/confirm-toast";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { StatusChangeDialog } from "./StatusChangeDialog";
+import { renewDefaults, ValidFromField } from "./RenewPeriodFields";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   buildMemberSlug,
@@ -45,10 +37,12 @@ import {
   inputClass,
   isExpired,
   isExpiringSoon,
+  statusTitle,
+  statusToggleBlocker,
   isProfileIncomplete,
   isTodayOrPast,
-  isWithinDays,
   MemberStatsCards,
+  STATUS_FILTERS,
   StatusToggle,
 } from "./directory-shared";
 import { MemberForm } from "./MemberForm";
@@ -61,17 +55,9 @@ const LARGE_BATCH = 1000;
 const DEFAULT_EXPIRING_DAYS = 7;
 const MAX_SEARCH_SUGGESTIONS = 8;
 
-// Filters the backend already understands as a `status` query param — these
-// keep server-side pagination. Anything else is computed client-side below.
-const SERVER_FILTERS = new Set(["all", "active", "inactive"]);
-
-const FILTERS = [
-  { value: "all", label: "All" },
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
-  { value: "expiring", label: "Expiring Soon" },
-  { value: "incomplete", label: "Profile Incomplete" },
-];
+// Every status filter is searched and paginated by the backend. Only Profile
+// Incomplete is computed client-side below.
+const FILTERS = [...STATUS_FILTERS, { value: "incomplete", label: "Profile Incomplete" }];
 
 function DirectoryCardSkeleton() {
   return (
@@ -171,7 +157,7 @@ export function DirectoryManagement() {
     total: 0,
     totalPages: 1,
   });
-  const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0 });
+  const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0, blocked: 0, expired: 0, pending: 0 });
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
@@ -195,6 +181,7 @@ export function DirectoryManagement() {
   const [renewTarget, setRenewTarget] = useState(null);
   const [renewDate, setRenewDate] = useState("");
   const [renewAmount, setRenewAmount] = useState("");
+  const [renewFrom, setRenewFrom] = useState("");
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState("");
 
@@ -310,19 +297,22 @@ export function DirectoryManagement() {
       let pagination;
       let statsResult;
 
-      if (SERVER_FILTERS.has(statusFilter)) {
-        const result = await getMembers({ search, status: statusFilter, page, limit: PAGE_SIZE });
+      if (statusFilter !== "incomplete") {
+        const result = await getMembers({
+          search,
+          status: statusFilter,
+          expiringDays,
+          page,
+          limit: PAGE_SIZE,
+        });
         members = result.members;
         pagination = result.pagination;
         statsResult = result.stats;
       } else {
-        // Expiring Soon / Profile Incomplete aren't backend filters — fetch a
-        // large batch once and filter/paginate on the client, same pattern
-        // PartnerDirectory.jsx already uses for its whole list.
+        // Profile Incomplete isn't a backend filter — fetch a large batch once
+        // and filter/paginate on the client.
         const result = await getMembers({ search, limit: LARGE_BATCH });
-        const matched = result.members.filter(
-          statusFilter === "expiring" ? (m) => isWithinDays(m, expiringDays) : isProfileIncomplete,
-        );
+        const matched = result.members.filter(isProfileIncomplete);
         const totalPages = Math.max(1, Math.ceil(matched.length / PAGE_SIZE));
         const safePage = Math.min(page, totalPages);
         members = matched.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
@@ -423,22 +413,30 @@ export function DirectoryManagement() {
     });
   };
 
+  // Manual Active / Inactive (with a reason). Plan expiry is separate and is
+  // shown from the backend's membership status.
   const toggleStatus = (member) => {
-    if (isExpired(member)) {
-      toast(`${member.memberName || "This member"} is expired — use Renew to make them active.`);
+    const blocker = statusToggleBlocker(member, member.memberName || "This member");
+    if (blocker) {
+      toast(blocker);
       return;
     }
     setStatusConfirmTarget(member);
   };
 
-  const confirmToggleStatus = async () => {
+  const confirmToggleStatus = async (isActive, reason) => {
     if (!statusConfirmTarget) return;
 
     setStatusUpdating(true);
 
     try {
-      await toggleMemberStatus(statusConfirmTarget.id);
+      await toggleMemberStatus({ id: statusConfirmTarget.id, isActive, reason });
       await loadMembers();
+      toast.success(
+        isActive
+          ? `${statusConfirmTarget.memberName || "Member"} activated.`
+          : `${statusConfirmTarget.memberName || "Member"} deactivated.`,
+      );
       setStatusConfirmTarget(null);
     } catch (requestError) {
       const message = requestError.message || "Could not update member status.";
@@ -505,6 +503,8 @@ export function DirectoryManagement() {
     setRenewTarget(member);
     setRenewDate(member.validityTo ? member.validityTo.slice(0, 10) : "");
     setRenewAmount("");
+    const defaults = renewDefaults(member);
+    setRenewFrom(defaults.from);
     setRenewError("");
   };
 
@@ -512,6 +512,7 @@ export function DirectoryManagement() {
     setRenewTarget(null);
     setRenewDate("");
     setRenewAmount("");
+    setRenewFrom("");
     setRenewError("");
   };
 
@@ -525,6 +526,10 @@ export function DirectoryManagement() {
       setRenewError("Validity date must be after today.");
       return;
     }
+    if (!renewFrom) {
+      setRenewError("Choose the Valid From date.");
+      return;
+    }
     if (renewAmount && Number(renewAmount) < 0) {
       setRenewError("Amount cannot be negative.");
       return;
@@ -534,6 +539,7 @@ export function DirectoryManagement() {
     try {
       await renewMember({
         id: renewTarget.id,
+        validityFrom: renewFrom,
         validityTo: renewDate,
         amount: renewAmount ? Number(renewAmount) : undefined,
       });
@@ -753,7 +759,7 @@ export function DirectoryManagement() {
                             active={isEffectivelyActive}
                             onClick={() => toggleStatus(member)}
                             title={
-                              isExpired(member) ? "Expired — use Renew to activate" : undefined
+                              statusTitle(member)
                             }
                           />
                         </div>
@@ -873,7 +879,7 @@ export function DirectoryManagement() {
                               active={isEffectivelyActive}
                               onClick={() => toggleStatus(member)}
                               title={
-                                isExpired(member) ? "Expired — use Renew to activate" : undefined
+                                statusTitle(member)
                               }
                             />
                           </td>
@@ -1040,6 +1046,12 @@ export function DirectoryManagement() {
             <p className="mt-1 text-sm text-slate-500">
               {renewTarget.memberName || "This member"} — set the new validity date.
             </p>
+            <ValidFromField
+              record={renewTarget}
+              value={renewFrom}
+              onChange={setRenewFrom}
+              disabled={renewing}
+            />
             <label className="mt-4 block text-[13px] font-semibold text-slate-700">
               New Validity To
               <input
@@ -1087,37 +1099,14 @@ export function DirectoryManagement() {
         </div>
       )}
 
-      <AlertDialog
-        open={statusConfirmTarget != null}
-        onOpenChange={(open) => {
-          if (!open && !statusUpdating) setStatusConfirmTarget(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {statusConfirmTarget?.isActive ? "Deactivate member?" : "Activate member?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {statusConfirmTarget?.isActive
-                ? `${statusConfirmTarget?.memberName || "This member"} will be marked Inactive and hidden from the public directory.`
-                : `${statusConfirmTarget?.memberName || "This member"} will be marked Active and shown in the public directory.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={statusUpdating}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                confirmToggleStatus();
-              }}
-              disabled={statusUpdating}
-            >
-              {statusUpdating ? "Updating…" : "Confirm"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <StatusChangeDialog
+        target={statusConfirmTarget}
+        noun="member"
+        name={statusConfirmTarget?.memberName}
+        updating={statusUpdating}
+        onConfirm={confirmToggleStatus}
+        onClose={() => setStatusConfirmTarget(null)}
+      />
     </section>
   );
 }

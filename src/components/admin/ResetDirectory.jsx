@@ -4,12 +4,12 @@ import {
   useUpdateMemberMutation,
 } from "@/features/members/membersApi";
 import {
-  useLazyGetPartnersQuery,
+  useLazyGetPartnersPageQuery,
   useRenewPartnerMutation,
   useUpdatePartnerMutation,
 } from "@/features/partners/partnersApi";
 import { useLazyCall, useMutate } from "@/services/api/useApiCall";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AppLink as Link } from "@/components/common/AppLink";
 
@@ -17,6 +17,7 @@ import { Eye, Handshake, RefreshCw, Search, Tag, Users, X, LoaderCircle, User } 
 import { toast } from "react-toastify";
 
 import { getMediaUrl } from "../../lib/config";
+import { renewDefaults, ValidFromField } from "./RenewPeriodFields";
 
 import {
   buildMemberSlug,
@@ -28,11 +29,11 @@ import {
   isExpired,
   isExpiringSoon,
   isTodayOrPast,
+  STATUS_FILTERS,
   StatusBadge,
 } from "./directory-shared";
 
 const PAGE_SIZE = 10;
-const LARGE_BATCH = 1000;
 const SEARCH_DEBOUNCE_MS = 400;
 
 const TABS = [
@@ -195,7 +196,7 @@ function ResetDirectoryTableSkeleton() {
 
 export function ResetDirectory() {
   const getMembers = useLazyCall(useLazyGetMembersQuery);
-  const getPartners = useLazyCall(useLazyGetPartnersQuery);
+  const getPartnersPage = useLazyCall(useLazyGetPartnersPageQuery);
   const renewMember = useMutate(useRenewMemberMutation);
   const renewPartner = useMutate(useRenewPartnerMutation);
   const updateMember = useMutate(useUpdateMemberMutation);
@@ -203,6 +204,9 @@ export function ResetDirectory() {
   const [tab, setTab] = useState("members");
 
   const [records, setRecords] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 1 });
+  const latestRequestId = useRef(0);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState("");
 
@@ -218,6 +222,7 @@ export function ResetDirectory() {
   const [renewTarget, setRenewTarget] = useState(null);
   const [renewDate, setRenewDate] = useState("");
   const [renewAmount, setRenewAmount] = useState("");
+  const [renewFrom, setRenewFrom] = useState("");
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState("");
 
@@ -248,39 +253,49 @@ export function ResetDirectory() {
 
   useEffect(() => {
     setPage(1);
-  }, [tab, search]);
+  }, [tab, search, statusFilter]);
 
   /* =====================================================
      LOAD DATA
   ===================================================== */
 
+  // Searched, filtered and paginated by the backend. Only the most recently
+  // started request may commit, so a slow older response can never overwrite
+  // what the admin is looking at now.
   const load = async () => {
+    const requestId = ++latestRequestId.current;
+    const isStale = () => requestId !== latestRequestId.current;
+
     setLoading(true);
     setListError("");
 
     try {
-      if (tab === "members") {
-        const result = await getMembers({
-          search,
-          limit: LARGE_BATCH,
-        });
+      const params = { search, status: statusFilter, page, limit: PAGE_SIZE };
+      const result =
+        tab === "members" ? await getMembers(params) : await getPartnersPage(params);
 
-        setRecords(result?.members || []);
-      } else {
-        const result = await getPartners({
-          search,
-          limit: LARGE_BATCH,
-        });
+      if (isStale()) return;
 
-        setRecords(Array.isArray(result) ? result : []);
+      const rows = (tab === "members" ? result?.members : result?.partners) || [];
+      const resultPagination = result?.pagination || { page: 1, total: rows.length, totalPages: 1 };
+
+      // The last row of the last page was removed — step back to the new last page.
+      if (rows.length === 0 && page > 1 && resultPagination.total > 0) {
+        setPage(Math.max(1, resultPagination.totalPages));
+        return;
       }
+
+      setRecords(rows);
+      setPagination(resultPagination);
     } catch (requestError) {
+      if (isStale()) return;
+
       const message = requestError?.message || `Could not load ${tab}.`;
 
       setListError(message);
       toast.error(message);
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   };
 
@@ -288,17 +303,17 @@ export function ResetDirectory() {
     load();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, search]);
+  }, [tab, search, statusFilter, page]);
 
   /* =====================================================
      PAGINATION
   ===================================================== */
 
-  const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE));
+  const totalPages = pagination.totalPages;
 
-  const safePage = Math.min(page, totalPages);
+  const safePage = pagination.page;
 
-  const pageRows = records.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageRows = records;
 
   /* =====================================================
      SWITCH TAB
@@ -308,6 +323,7 @@ export function ResetDirectory() {
     setTab(value);
     setSearchInput("");
     setSearch("");
+    setStatusFilter("all");
     setPage(1);
   };
 
@@ -321,6 +337,8 @@ export function ResetDirectory() {
     setRenewDate(record?.validityTo ? String(record.validityTo).slice(0, 10) : "");
 
     setRenewAmount("");
+    const defaults = renewDefaults(record);
+    setRenewFrom(defaults.from);
     setRenewError("");
   };
 
@@ -345,6 +363,10 @@ export function ResetDirectory() {
       setRenewError("Validity date must be after today.");
       return;
     }
+    if (!renewFrom) {
+      setRenewError("Choose the Valid From date.");
+      return;
+    }
 
     if (renewAmount && Number(renewAmount) < 0) {
       setRenewError("Amount cannot be negative.");
@@ -356,6 +378,7 @@ export function ResetDirectory() {
 
     try {
       const payload = {
+        validityFrom: renewFrom,
         validityTo: renewDate,
         amount: renewAmount ? Number(renewAmount) : undefined,
       };
@@ -525,6 +548,27 @@ export function ResetDirectory() {
                 );
               })}
             </div>
+
+            {/* Status filter */}
+
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              aria-label={`Filter ${tab} by status`}
+              className="
+                h-9 w-full rounded-md border border-slate-300
+                bg-white px-3 text-xs outline-none
+                transition-all hover:border-slate-400
+                focus:border-red-700 focus:ring-2 focus:ring-red-100
+                sm:text-[13px] lg:w-auto
+              "
+            >
+              {STATUS_FILTERS.map((filter) => (
+                <option key={filter.value} value={filter.value}>
+                  {filter.label}
+                </option>
+              ))}
+            </select>
 
             {/* Search */}
 
@@ -838,7 +882,7 @@ export function ResetDirectory() {
                 PAGINATION
             ================================================= */}
 
-            {records.length > 0 && (
+            {pagination.total > 0 && (
               <div className="mt-3 flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:text-[13px]">
                 <p>
                   Showing{" "}
@@ -847,9 +891,9 @@ export function ResetDirectory() {
                   </span>{" "}
                   –{" "}
                   <span className="font-semibold text-slate-700">
-                    {Math.min(safePage * PAGE_SIZE, records.length)}
+                    {Math.min(safePage * PAGE_SIZE, pagination.total)}
                   </span>{" "}
-                  of <span className="font-semibold text-slate-700">{records.length}</span>
+                  of <span className="font-semibold text-slate-700">{pagination.total}</span>
                 </p>
 
                 <div className="flex items-center gap-2">
@@ -929,6 +973,13 @@ export function ResetDirectory() {
         >
           <form onSubmit={confirmRenew} className="space-y-4">
             {/* Date */}
+
+            <ValidFromField
+              record={renewTarget}
+              value={renewFrom}
+              onChange={setRenewFrom}
+              disabled={renewing}
+            />
 
             <label className="block text-[13px] font-semibold text-slate-700">
               New Validity To

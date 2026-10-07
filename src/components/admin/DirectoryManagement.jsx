@@ -25,7 +25,7 @@ import {
 import { toast } from "react-toastify";
 import { confirmToast } from "@/lib/confirm-toast";
 import { StatusChangeDialog } from "./StatusChangeDialog";
-import { renewDefaults, ValidFromField } from "./RenewPeriodFields";
+import { renewDefaults, RenewNoteField, ValidFromField } from "./RenewPeriodFields";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   buildMemberSlug,
@@ -157,7 +157,14 @@ export function DirectoryManagement() {
     total: 0,
     totalPages: 1,
   });
-  const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0, blocked: 0, expired: 0, pending: 0 });
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    inactive: 0,
+    blocked: 0,
+    expired: 0,
+    pending: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
@@ -181,6 +188,7 @@ export function DirectoryManagement() {
   const [renewTarget, setRenewTarget] = useState(null);
   const [renewDate, setRenewDate] = useState("");
   const [renewAmount, setRenewAmount] = useState("");
+  const [renewNote, setRenewNote] = useState("");
   const [renewFrom, setRenewFrom] = useState("");
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState("");
@@ -503,6 +511,7 @@ export function DirectoryManagement() {
     setRenewTarget(member);
     setRenewDate(member.validityTo ? member.validityTo.slice(0, 10) : "");
     setRenewAmount("");
+    setRenewNote("");
     const defaults = renewDefaults(member);
     setRenewFrom(defaults.from);
     setRenewError("");
@@ -512,6 +521,7 @@ export function DirectoryManagement() {
     setRenewTarget(null);
     setRenewDate("");
     setRenewAmount("");
+    setRenewNote("");
     setRenewFrom("");
     setRenewError("");
   };
@@ -542,6 +552,7 @@ export function DirectoryManagement() {
         validityFrom: renewFrom,
         validityTo: renewDate,
         amount: renewAmount ? Number(renewAmount) : undefined,
+        note: renewNote.trim() || undefined,
       });
       await loadMembers();
       // Renewing always pushes validityTo into the future (validated above),
@@ -758,9 +769,7 @@ export function DirectoryManagement() {
                           <StatusToggle
                             active={isEffectivelyActive}
                             onClick={() => toggleStatus(member)}
-                            title={
-                              statusTitle(member)
-                            }
+                            title={statusTitle(member)}
                           />
                         </div>
                       </div>
@@ -878,9 +887,7 @@ export function DirectoryManagement() {
                             <StatusToggle
                               active={isEffectivelyActive}
                               onClick={() => toggleStatus(member)}
-                              title={
-                                statusTitle(member)
-                              }
+                              title={statusTitle(member)}
                             />
                           </td>
                           <td
@@ -1074,6 +1081,7 @@ export function DirectoryManagement() {
                 className={`${inputClass} mt-1`}
               />
             </label>
+            <RenewNoteField value={renewNote} onChange={setRenewNote} disabled={renewing} />
             {renewError && (
               <p role="alert" className="mt-2 text-[13px] text-red-600">
                 {renewError}

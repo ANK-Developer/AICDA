@@ -77,7 +77,7 @@ function buildInitialForm(partner, lockedMember) {
     city: partner.city || "",
     dateOfJoining: partner.dateOfJoining ? partner.dateOfJoining.slice(0, 10) : "",
     validityFrom: "",
-    validityTo: partner.validityTo ? partner.validityTo.slice(0, 10) : "",
+    validityTo: "",
     amount: "",
     note: "",
   };
@@ -630,13 +630,13 @@ export function PartnerForm({ partner, members = [], lockedMember, onCancel, onS
       </FormSection>
 
       {/* ==================== MEMBERSHIP & PAYMENT ==================== */}
-      <FormSection
-        title="Membership & Payment"
-        description="Manage validity and payment information."
-      >
-        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 lg:grid-cols-3">
-          {/* Plan start (new partners only) */}
-          {!isEdit && (
+      {/* First payment only — after that, validity changes go through Renew. */}
+      {!isEdit && (
+        <FormSection
+          title="Membership & Payment"
+          description="Manage validity and payment information."
+        >
+          <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 lg:grid-cols-3">
             <FieldRow label="Valid From">
               <input
                 type="date"
@@ -646,45 +646,45 @@ export function PartnerForm({ partner, members = [], lockedMember, onCancel, onS
                 className={inputClass}
               />
             </FieldRow>
-          )}
 
-          {/* Validity */}
-          <FieldRow label="Validity To">
-            <input
-              type="date"
-              value={form.validityTo}
-              onChange={(e) => updateField("validityTo", e.target.value)}
-              className={inputClass}
-            />
-          </FieldRow>
-
-          {/* Amount */}
-          <FieldRow label="Amount Paid">
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.amount}
-              onChange={(e) => updateField("amount", e.target.value)}
-              className={inputClass}
-              placeholder="Optional"
-            />
-          </FieldRow>
-
-          {/* Note */}
-          <div className="md:col-span-2 lg:col-span-3">
-            <FieldRow label="Note">
-              <textarea
-                value={form.note}
-                onChange={(e) => updateField("note", e.target.value)}
-                rows={2}
-                className={textareaClass}
-                placeholder="Optional note"
+            {/* Validity */}
+            <FieldRow label="Validity To">
+              <input
+                type="date"
+                value={form.validityTo}
+                onChange={(e) => updateField("validityTo", e.target.value)}
+                className={inputClass}
               />
             </FieldRow>
+
+            {/* Amount */}
+            <FieldRow label="Amount Paid">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.amount}
+                onChange={(e) => updateField("amount", e.target.value)}
+                className={inputClass}
+                placeholder="Optional"
+              />
+            </FieldRow>
+
+            {/* Note */}
+            <div className="md:col-span-2 lg:col-span-3">
+              <FieldRow label="Note">
+                <textarea
+                  value={form.note}
+                  onChange={(e) => updateField("note", e.target.value)}
+                  rows={2}
+                  className={textareaClass}
+                  placeholder="Optional note"
+                />
+              </FieldRow>
+            </div>
           </div>
-        </div>
-      </FormSection>
+        </FormSection>
+      )}
 
       {/* ==================== ERROR ==================== */}
       {error && (

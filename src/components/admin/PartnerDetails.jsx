@@ -9,7 +9,7 @@ import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppLink as Link } from "@/components/common/AppLink";
 import { useGoBack } from "@/hooks/use-go-back";
-import { renewDefaults, ValidFromField } from "./RenewPeriodFields";
+import { renewDefaults, RenewNoteField, ValidFromField } from "./RenewPeriodFields";
 import {
   ArrowLeft,
   CalendarDays,
@@ -212,6 +212,7 @@ export function PartnerDetails({ slug }) {
   const [showRenew, setShowRenew] = useState(false);
   const [renewDate, setRenewDate] = useState("");
   const [renewAmount, setRenewAmount] = useState("");
+  const [renewNote, setRenewNote] = useState("");
   const [renewFrom, setRenewFrom] = useState("");
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState("");
@@ -387,6 +388,8 @@ export function PartnerDetails({ slug }) {
     setRenewDate(partner.validityTo ? String(partner.validityTo).slice(0, 10) : "");
 
     setRenewAmount("");
+
+    setRenewNote("");
     const defaults = renewDefaults(partner);
     setRenewFrom(defaults.from);
     setRenewError("");
@@ -399,6 +402,7 @@ export function PartnerDetails({ slug }) {
     setShowRenew(false);
     setRenewDate("");
     setRenewAmount("");
+    setRenewNote("");
     setRenewError("");
   };
 
@@ -435,6 +439,7 @@ export function PartnerDetails({ slug }) {
         validityFrom: renewFrom,
         validityTo: renewDate,
         amount: renewAmount === "" ? undefined : Number(renewAmount),
+        note: renewNote.trim() || undefined,
       });
 
       const updatedPartner = await loadPartner({
@@ -450,6 +455,7 @@ export function PartnerDetails({ slug }) {
       setShowRenew(false);
       setRenewDate("");
       setRenewAmount("");
+      setRenewNote("");
       setRenewError("");
     } catch (requestError) {
       const message = requestError?.message || "Could not renew partner.";
@@ -933,6 +939,7 @@ export function PartnerDetails({ slug }) {
                   />
                 </div>
               </label>
+              <RenewNoteField value={renewNote} onChange={setRenewNote} disabled={renewing} />
 
               {/* Error */}
               {renewError && (

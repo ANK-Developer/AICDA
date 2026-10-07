@@ -89,7 +89,7 @@ function buildInitialForm(member) {
     dateOfJoining: member.dateOfJoining ? member.dateOfJoining.slice(0, 10) : "",
     aadharNo: member.aadharNo || "",
     validityFrom: "",
-    validityTo: member.validityTo ? member.validityTo.slice(0, 10) : "",
+    validityTo: "",
     amount: "",
     note: "",
   };
@@ -614,13 +614,14 @@ export function MemberForm({ member, onCancel, onSaved }) {
           MEMBERSHIP & PAYMENT
       =================================================== */}
 
-      <FormSection
-        icon={CreditCard}
-        title="Membership & Payment"
-        description="Membership dates and payment information"
-      >
-        <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 lg:grid-cols-3">
-          {!isEdit && (
+      {/* First payment only — after that, validity changes go through Renew. */}
+      {!isEdit && (
+        <FormSection
+          icon={CreditCard}
+          title="Membership & Payment"
+          description="Membership dates and payment information"
+        >
+          <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 lg:grid-cols-3">
             <FormInput label="Valid From">
               <div className="relative">
                 <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -634,45 +635,45 @@ export function MemberForm({ member, onCancel, onSaved }) {
                 />
               </div>
             </FormInput>
-          )}
 
-          <FormInput label="Validity To">
-            <div className="relative">
-              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <FormInput label="Validity To">
+              <div className="relative">
+                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
+                <input
+                  type="date"
+                  value={form.validityTo}
+                  onChange={(e) => updateField("validityTo", e.target.value)}
+                  className={`pl-9 ${inputClass}`}
+                />
+              </div>
+            </FormInput>
+
+            <FormInput label="Amount Paid">
               <input
-                type="date"
-                value={form.validityTo}
-                onChange={(e) => updateField("validityTo", e.target.value)}
-                className={`pl-9 ${inputClass}`}
-              />
-            </div>
-          </FormInput>
-
-          <FormInput label="Amount Paid">
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.amount}
-              onChange={(e) => updateField("amount", e.target.value)}
-              placeholder="Optional"
-              className={inputClass}
-            />
-          </FormInput>
-
-          <div className="lg:col-span-3">
-            <FormInput label="Note">
-              <input
-                value={form.note}
-                onChange={(e) => updateField("note", e.target.value)}
-                placeholder="Optional note"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.amount}
+                onChange={(e) => updateField("amount", e.target.value)}
+                placeholder="Optional"
                 className={inputClass}
               />
             </FormInput>
+
+            <div className="lg:col-span-3">
+              <FormInput label="Note">
+                <input
+                  value={form.note}
+                  onChange={(e) => updateField("note", e.target.value)}
+                  placeholder="Optional note"
+                  className={inputClass}
+                />
+              </FormInput>
+            </div>
           </div>
-        </div>
-      </FormSection>
+        </FormSection>
+      )}
 
       {/* ===================================================
           INCOMPLETE PROFILE

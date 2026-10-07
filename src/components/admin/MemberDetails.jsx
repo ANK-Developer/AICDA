@@ -9,7 +9,7 @@ import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useEffect, useRef, useState } from "react";
 import { AppLink as Link } from "@/components/common/AppLink";
 import { useGoBack } from "@/hooks/use-go-back";
-import { renewDefaults, ValidFromField } from "./RenewPeriodFields";
+import { renewDefaults, RenewNoteField, ValidFromField } from "./RenewPeriodFields";
 import {
   ArrowLeft,
   CalendarDays,
@@ -205,6 +205,7 @@ export function MemberDetails({ slug }) {
   const [showRenew, setShowRenew] = useState(false);
   const [renewDate, setRenewDate] = useState("");
   const [renewAmount, setRenewAmount] = useState("");
+  const [renewNote, setRenewNote] = useState("");
   const [renewFrom, setRenewFrom] = useState("");
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState("");
@@ -380,6 +381,8 @@ export function MemberDetails({ slug }) {
     setRenewDate(member.validityTo ? String(member.validityTo).slice(0, 10) : "");
 
     setRenewAmount("");
+
+    setRenewNote("");
     const defaults = renewDefaults(member);
     setRenewFrom(defaults.from);
     setRenewError("");
@@ -392,6 +395,7 @@ export function MemberDetails({ slug }) {
     setShowRenew(false);
     setRenewDate("");
     setRenewAmount("");
+    setRenewNote("");
     setRenewError("");
   };
 
@@ -439,6 +443,7 @@ export function MemberDetails({ slug }) {
         validityFrom: renewFrom,
         validityTo: renewDate,
         amount: renewAmount !== "" ? Number(renewAmount) : undefined,
+        note: renewNote.trim() || undefined,
       });
 
       const updatedMember = await loadMember();
@@ -1225,6 +1230,7 @@ export function MemberDetails({ slug }) {
                   />
                 </div>
               </div>
+              <RenewNoteField value={renewNote} onChange={setRenewNote} disabled={renewing} />
 
               {/* Error */}
               {renewError && (

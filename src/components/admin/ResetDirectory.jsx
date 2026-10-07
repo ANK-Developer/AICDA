@@ -17,7 +17,7 @@ import { Eye, Handshake, RefreshCw, Search, Tag, Users, X, LoaderCircle, User } 
 import { toast } from "react-toastify";
 
 import { getMediaUrl } from "../../lib/config";
-import { renewDefaults, ValidFromField } from "./RenewPeriodFields";
+import { renewDefaults, RenewNoteField, ValidFromField } from "./RenewPeriodFields";
 
 import {
   buildMemberSlug,
@@ -222,6 +222,7 @@ export function ResetDirectory() {
   const [renewTarget, setRenewTarget] = useState(null);
   const [renewDate, setRenewDate] = useState("");
   const [renewAmount, setRenewAmount] = useState("");
+  const [renewNote, setRenewNote] = useState("");
   const [renewFrom, setRenewFrom] = useState("");
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState("");
@@ -271,8 +272,7 @@ export function ResetDirectory() {
 
     try {
       const params = { search, status: statusFilter, page, limit: PAGE_SIZE };
-      const result =
-        tab === "members" ? await getMembers(params) : await getPartnersPage(params);
+      const result = tab === "members" ? await getMembers(params) : await getPartnersPage(params);
 
       if (isStale()) return;
 
@@ -337,6 +337,8 @@ export function ResetDirectory() {
     setRenewDate(record?.validityTo ? String(record.validityTo).slice(0, 10) : "");
 
     setRenewAmount("");
+
+    setRenewNote("");
     const defaults = renewDefaults(record);
     setRenewFrom(defaults.from);
     setRenewError("");
@@ -348,6 +350,7 @@ export function ResetDirectory() {
     setRenewTarget(null);
     setRenewDate("");
     setRenewAmount("");
+    setRenewNote("");
     setRenewError("");
   };
 
@@ -381,6 +384,7 @@ export function ResetDirectory() {
         validityFrom: renewFrom,
         validityTo: renewDate,
         amount: renewAmount ? Number(renewAmount) : undefined,
+        note: renewNote.trim() || undefined,
       };
 
       if (tab === "members") {
@@ -1006,6 +1010,7 @@ export function ResetDirectory() {
                 className={`${inputClass} mt-1 w-full`}
               />
             </label>
+            <RenewNoteField value={renewNote} onChange={setRenewNote} disabled={renewing} />
 
             {/* Error */}
 

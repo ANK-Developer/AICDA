@@ -2,8 +2,7 @@ import { inputClass } from "./directory-shared";
 
 // Today in India as "YYYY-MM-DD" — only used as the default / limit of the
 // Payment Date field. Whether a renewal is allowed is decided by the backend.
-export const todayIST = () =>
-  new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+export const todayIST = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
 // Starting value of Valid From. The backend sends `membership.nextValidFrom`:
 // the last valid-to day, or the day the record was created when nothing has been
@@ -12,7 +11,29 @@ export function renewDefaults(record) {
   return { from: record?.membership?.nextValidFrom || "" };
 }
 
-const daysBetween = (fromDay, toDay) => Math.round((Date.parse(toDay) - Date.parse(fromDay)) / 86400000);
+// Longest note the backend accepts on a renewal (cheque number, UPI ref, …).
+export const RENEW_NOTE_MAX = 300;
+
+// Optional free-text note stored with the renewal (shown in payment history).
+export function RenewNoteField({ value, onChange, disabled }) {
+  return (
+    <label className="mt-4 block text-[13px] font-semibold text-slate-700">
+      Note (optional)
+      <input
+        type="text"
+        value={value}
+        maxLength={RENEW_NOTE_MAX}
+        disabled={disabled}
+        placeholder="e.g. Cheque no. 1234, UPI ref, cash"
+        onChange={(event) => onChange(event.target.value)}
+        className={`${inputClass} mt-1 w-full`}
+      />
+    </label>
+  );
+}
+
+const daysBetween = (fromDay, toDay) =>
+  Math.round((Date.parse(toDay) - Date.parse(fromDay)) / 86400000);
 
 const formatDay = (day) =>
   new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", {
@@ -31,7 +52,8 @@ const formatDay = (day) =>
 //    shown before saving.
 export function ValidFromField({ record, value, onChange, disabled }) {
   const membership = record?.membership;
-  const previousTo = membership && membership.status !== "PENDING" ? membership.nextValidFrom : null;
+  const previousTo =
+    membership && membership.status !== "PENDING" ? membership.nextValidFrom : null;
   const planRunning = membership?.status === "VALID";
   const gapDays = previousTo && value && value > previousTo ? daysBetween(previousTo, value) : 0;
 
@@ -60,8 +82,8 @@ export function ValidFromField({ record, value, onChange, disabled }) {
       ) : null}
       {gapDays > 0 && (
         <span className="mt-1 block text-[12px] font-medium text-amber-700">
-          Gap of {gapDays} day{gapDays === 1 ? "" : "s"} ({formatDay(previousTo)} to {formatDay(value)}): the
-          member stays Expired during this period.
+          Gap of {gapDays} day{gapDays === 1 ? "" : "s"} ({formatDay(previousTo)} to{" "}
+          {formatDay(value)}): the member stays Expired during this period.
         </span>
       )}
     </label>

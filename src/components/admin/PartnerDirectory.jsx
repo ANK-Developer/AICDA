@@ -12,7 +12,7 @@ import { ArrowLeft, Eye, Link2, Pencil, RefreshCw, Search, Trash2, Users } from 
 import { toast } from "react-toastify";
 import { confirmToast } from "@/lib/confirm-toast";
 import { StatusChangeDialog } from "./StatusChangeDialog";
-import { renewDefaults, ValidFromField } from "./RenewPeriodFields";
+import { renewDefaults, RenewNoteField, ValidFromField } from "./RenewPeriodFields";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   buildPartnerSlug,
@@ -85,6 +85,7 @@ export function PartnerDirectory() {
   const [renewTarget, setRenewTarget] = useState(null);
   const [renewDate, setRenewDate] = useState("");
   const [renewAmount, setRenewAmount] = useState("");
+  const [renewNote, setRenewNote] = useState("");
   const [renewFrom, setRenewFrom] = useState("");
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState("");
@@ -246,6 +247,7 @@ export function PartnerDirectory() {
     setRenewTarget(partner);
     setRenewDate(partner.validityTo ? partner.validityTo.slice(0, 10) : "");
     setRenewAmount("");
+    setRenewNote("");
     const defaults = renewDefaults(partner);
     setRenewFrom(defaults.from);
     setRenewError("");
@@ -255,6 +257,7 @@ export function PartnerDirectory() {
     setRenewTarget(null);
     setRenewDate("");
     setRenewAmount("");
+    setRenewNote("");
     setRenewFrom("");
     setRenewError("");
   };
@@ -285,6 +288,7 @@ export function PartnerDirectory() {
         validityFrom: renewFrom,
         validityTo: renewDate,
         amount: renewAmount ? Number(renewAmount) : undefined,
+        note: renewNote.trim() || undefined,
       });
       await loadAll();
       toast.success(
@@ -369,7 +373,10 @@ export function PartnerDirectory() {
 
           {statusFilter === "expiring" && (
             <div className="mt-3 flex items-center gap-2 rounded-[3px] border border-slate-200 bg-slate-50 px-3 py-2">
-              <label htmlFor="partner-expiring-days" className="text-[13px] font-semibold text-slate-600">
+              <label
+                htmlFor="partner-expiring-days"
+                className="text-[13px] font-semibold text-slate-600"
+              >
                 Show partners expiring within
               </label>
               <input
@@ -425,9 +432,7 @@ export function PartnerDirectory() {
                           <StatusToggle
                             active={isEffectivelyActive}
                             onClick={() => toggleStatus(partner)}
-                            title={
-                              statusTitle(partner)
-                            }
+                            title={statusTitle(partner)}
                           />
                         </div>
                       </div>
@@ -533,9 +538,7 @@ export function PartnerDirectory() {
                             <StatusToggle
                               active={isEffectivelyActive}
                               onClick={() => toggleStatus(partner)}
-                              title={
-                                statusTitle(partner)
-                              }
+                              title={statusTitle(partner)}
                             />
                           </td>
                           <td
@@ -663,6 +666,7 @@ export function PartnerDirectory() {
                 className={`${inputClass} mt-1`}
               />
             </label>
+            <RenewNoteField value={renewNote} onChange={setRenewNote} disabled={renewing} />
             {renewError && (
               <p role="alert" className="mt-2 text-[13px] text-red-600">
                 {renewError}

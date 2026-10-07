@@ -36,6 +36,8 @@ const PAGE_SIZE = 10;
 
 const SEARCH_DEBOUNCE_MS = 400;
 
+const DEFAULT_EXPIRING_DAYS = 7;
+
 function PartnerCardSkeleton() {
   return (
     <div className="rounded-[3px] border border-slate-300 p-2.5">
@@ -77,6 +79,8 @@ export function PartnerDirectory() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const [expiringDaysInput, setExpiringDaysInput] = useState(String(DEFAULT_EXPIRING_DAYS));
+  const [expiringDays, setExpiringDays] = useState(DEFAULT_EXPIRING_DAYS);
 
   const [renewTarget, setRenewTarget] = useState(null);
   const [renewDate, setRenewDate] = useState("");
@@ -101,6 +105,7 @@ export function PartnerDirectory() {
       const result = await getPartnersPage({
         search,
         status: statusFilter,
+        expiringDays,
         page,
         limit: PAGE_SIZE,
       });
@@ -139,10 +144,20 @@ export function PartnerDirectory() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
+  // Debounced so the box stays freely editable while retyping.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setExpiringDays(Math.max(0, Number(expiringDaysInput) || 0));
+      setPage(1);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [expiringDaysInput]);
+
   useEffect(() => {
     loadAll();
+    // Only re-run for expiringDays while that filter is active.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, statusFilter, page]);
+  }, [search, statusFilter, page, statusFilter === "expiring" ? expiringDays : null]);
 
   const pageRows = partners;
   const currentPage = pagination.page;
@@ -351,6 +366,23 @@ export function PartnerDirectory() {
               </span>
             </label>
           </div>
+
+          {statusFilter === "expiring" && (
+            <div className="mt-3 flex items-center gap-2 rounded-[3px] border border-slate-200 bg-slate-50 px-3 py-2">
+              <label htmlFor="partner-expiring-days" className="text-[13px] font-semibold text-slate-600">
+                Show partners expiring within
+              </label>
+              <input
+                id="partner-expiring-days"
+                type="number"
+                min="0"
+                value={expiringDaysInput}
+                onChange={(e) => setExpiringDaysInput(e.target.value)}
+                className="h-8 w-20 rounded-[3px] border border-slate-200 bg-white px-2 text-[13px] outline-none transition-colors hover:border-slate-400 focus:border-sky-500 focus:ring-1 focus:ring-sky-200"
+              />
+              <span className="text-[13px] text-slate-600">days</span>
+            </div>
+          )}
 
           {listError && (
             <p

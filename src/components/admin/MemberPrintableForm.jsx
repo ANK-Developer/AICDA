@@ -72,9 +72,7 @@ export function MemberPrintableForm({ member, formRef }) {
             <InfoLine label="Residential Telephone" value={member.residentialTelephone} />
             <InfoLine
               label="Address (State / City)"
-              value={[member.city?.cityName || member.city, member.state?.stateName || member.state]
-                .filter(Boolean)
-                .join(", ")}
+              value={[member.city, member.state].filter(Boolean).join(", ")}
             />
             <InfoLine label="Company" value={member.companyName} />
             <InfoLine label="Designation" value={member.designation} />

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, LoaderCircle, Users, UserCheck, UserX } from "lucide-react";
-import { useLazySearchCitiesQuery } from "@/features/locations/locationsApi";
 import { getCitiesForStateName } from "@/lib/india-cities";
 
 const STAT_CARD_ACCENTS = {
@@ -421,16 +420,13 @@ export function StateCombobox({ value, onChange }) {
   );
 }
 
-// City options = every known city of the chosen state (lib/india-cities.js)
-// plus cities already saved under the chosen district, listed first. Typing
-// narrows the list; anything not in it can still be entered freely — a
-// brand-new city just gets created on save.
-export function CityCombobox({ value, onChange, state, district }) {
-  const [searchCities] = useLazySearchCitiesQuery();
+// City options = every known city of the chosen state (lib/india-cities.js).
+// Typing narrows the list; a name that isn't in it can still be entered freely
+// and is saved as typed.
+export function CityCombobox({ value, onChange, state }) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
-  const [stateCities, setStateCities] = useState([]);
-  const [savedCities, setSavedCities] = useState([]);
+  const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
   const containerRef = useRef(null);
   const listRef = useRef(null);
@@ -449,33 +445,22 @@ export function CityCombobox({ value, onChange, state, district }) {
 
   useEffect(() => {
     if (!state) {
-      setStateCities([]);
-      setSavedCities([]);
+      setOptions([]);
       return;
     }
     let cancelled = false;
     setLoading(true);
-    Promise.all([
-      getCitiesForStateName(state).catch(() => []),
-      searchCities({ state, district }, true)
-        .unwrap()
-        .then((cities) => cities.map((city) => city.cityName))
-        .catch(() => []),
-    ]).then(([all, saved]) => {
-      if (cancelled) return;
-      setStateCities(all);
-      setSavedCities(saved);
-      setLoading(false);
-    });
+    getCitiesForStateName(state)
+      .catch(() => [])
+      .then((cities) => {
+        if (cancelled) return;
+        setOptions(cities);
+        setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
-  }, [state, district, searchCities]);
-
-  const options = useMemo(
-    () => [...new Set([...(district ? savedCities : []), ...stateCities, ...savedCities])],
-    [district, savedCities, stateCities],
-  );
+  }, [state]);
 
   const filtered = useMemo(() => {
     const query = value.trim().toLowerCase();
@@ -649,7 +634,8 @@ export function statusTitle(record) {
 export function statusToggleBlocker(record, name) {
   if (record?.status?.status === "INACTIVE") return null;
   if (isExpired(record)) return `${name} is expired — use Renew to make them active.`;
-  if (isPaymentPending(record)) return `${name} has no payment recorded yet — use Renew to make them active.`;
+  if (isPaymentPending(record))
+    return `${name} has no payment recorded yet — use Renew to make them active.`;
   return null;
 }
 
@@ -695,7 +681,7 @@ export const PROFILE_FIELD_KEYS = [
 // object shape used elsewhere for e.g. partner lookups) — fall back to the
 // object form too so this keeps working if that ever changes.
 const PROFILE_FIELD_GETTERS = {
-  state: (m) => m.state?.stateName || m.state,
+  state: (m) => m.state,
 };
 
 const PROFILE_REQUIRED_FIELDS = PROFILE_FIELD_KEYS.map(([key, label]) => [

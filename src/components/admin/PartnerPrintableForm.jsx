@@ -71,12 +71,7 @@ export function PartnerPrintableForm({ partner, formRef }) {
             <InfoLine label="Residential Telephone" value={partner.residentialTelephone} />
             <InfoLine
               label="Address (State / City)"
-              value={[
-                partner.city?.cityName || partner.city,
-                partner.state?.stateName || partner.state,
-              ]
-                .filter(Boolean)
-                .join(", ")}
+              value={[partner.city, partner.state].filter(Boolean).join(", ")}
             />
             <InfoLine label="Company" value={partner.companyName} />
             <InfoLine label="Designation" value={partner.designation} />

@@ -92,7 +92,7 @@ function safeText(value) {
   }
 
   if (typeof value === "object") {
-    return value.name || value.label || value.cityName || value.stateName || value.title || "—";
+    return value.name || value.label || value.title || "—";
   }
 
   return String(value);
@@ -316,13 +316,7 @@ export function PartnerDetails({ slug }) {
 
   const currentRenewalId = getId(partner?.renewals?.[0]);
 
-  const location = [
-    partner?.city?.cityName || partner?.city,
-    partner?.state?.stateName || partner?.state,
-  ]
-    .filter(Boolean)
-    .map(safeText)
-    .join(", ");
+  const location = [partner?.city, partner?.state].filter(Boolean).map(safeText).join(", ");
 
   /* ------------------------------------------------------------------------ */
   /* Special dates                                                             */

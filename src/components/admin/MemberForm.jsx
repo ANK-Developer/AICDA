@@ -81,9 +81,9 @@ function buildInitialForm(member) {
     designation: member.designation || "",
     companyName: member.companyName || "",
     companyAddress: member.companyAddress || "",
-    state: member.state?.stateName || member.state || "",
+    state: member.state || "",
     district: member.district || "",
-    city: member.city?.cityName || member.city || "",
+    city: member.city || "",
     companyTelephone: member.companyTelephone || "",
     packetNo: member.packetNo || "",
     dateOfJoining: member.dateOfJoining ? member.dateOfJoining.slice(0, 10) : "",
@@ -595,7 +595,6 @@ export function MemberForm({ member, onCancel, onSaved }) {
               value={form.city}
               onChange={(value) => updateField("city", value)}
               state={form.state}
-              district={form.district}
             />
           </FormInput>
 

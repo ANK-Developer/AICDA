@@ -666,12 +666,7 @@ export function MemberDetails({ slug }) {
 
                 <InfoRow
                   label="State / City"
-                  value={[
-                    member.city?.cityName || member.city,
-                    member.state?.stateName || member.state,
-                  ]
-                    .filter(Boolean)
-                    .join(", ")}
+                  value={[member.city, member.state].filter(Boolean).join(", ")}
                   icon={MapPin}
                 />
 

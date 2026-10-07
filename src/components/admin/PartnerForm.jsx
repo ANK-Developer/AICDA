@@ -44,9 +44,9 @@ function buildInitialForm(partner, lockedMember) {
       companyAddress: lockedMember?.companyAddress || "",
       companyTelephone: lockedMember?.companyTelephone || "",
       packetNo: lockedMember?.packetNo || "",
-      state: lockedMember?.state?.stateName || lockedMember?.state || "",
+      state: lockedMember?.state || "",
       district: lockedMember?.district || "",
-      city: lockedMember?.city?.cityName || lockedMember?.city || "",
+      city: lockedMember?.city || "",
       dateOfJoining: "",
       validityFrom: todayIST(),
       validityTo: "",
@@ -72,9 +72,9 @@ function buildInitialForm(partner, lockedMember) {
     companyAddress: partner.companyAddress || "",
     companyTelephone: partner.companyTelephone || "",
     packetNo: partner.packetNo || "",
-    state: partner.state?.stateName || partner.state || "",
+    state: partner.state || "",
     district: partner.district || "",
-    city: partner.city?.cityName || partner.city || "",
+    city: partner.city || "",
     dateOfJoining: partner.dateOfJoining ? partner.dateOfJoining.slice(0, 10) : "",
     validityFrom: "",
     validityTo: partner.validityTo ? partner.validityTo.slice(0, 10) : "",
@@ -298,9 +298,9 @@ export function PartnerForm({ partner, members = [], lockedMember, onCancel, onS
       companyAddress: member?.companyAddress || "",
       companyTelephone: member?.companyTelephone || "",
       packetNo: member?.packetNo || "",
-      state: member?.state?.stateName || member?.state || "",
+      state: member?.state || "",
       district: member?.district || "",
-      city: member?.city?.cityName || member?.city || "",
+      city: member?.city || "",
     }));
 
     if (fieldErrors.memberId) {
@@ -614,7 +614,6 @@ export function PartnerForm({ partner, members = [], lockedMember, onCancel, onS
               value={form.city}
               onChange={(value) => updateField("city", value)}
               state={form.state}
-              district={form.district}
             />
           </FieldRow>
 

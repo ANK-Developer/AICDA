@@ -1,7 +1,6 @@
 // Full list of Indian cities per state for the City dropdown. The dataset is
 // large, so it's loaded on first use instead of shipping in the main bundle.
-// It has no district information — district-level matches come from the
-// backend (cities already saved under that district) and are listed first.
+// It has no district information, so the City list is per state only.
 
 const STATE_NAME_ALIASES = {
   "new delhi": "delhi",

@@ -219,9 +219,14 @@ export function MemberForm({ member, onCancel, onSaved }) {
         return !(form.photo || existingPhotoUrl);
       }
 
+      // The Edit form has no validity field — use the saved date instead.
+      if (key === "validityTo" && isEdit) {
+        return !member.validityTo;
+      }
+
       return !String(form[key] || "").trim();
     }).map(([, label]) => label);
-  }, [form, existingPhotoUrl]);
+  }, [form, existingPhotoUrl, isEdit, member]);
 
   /* =======================================================
      UPDATE FIELD

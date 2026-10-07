@@ -79,12 +79,27 @@ export function StatCard({ icon: Icon, label, value, accent = "slate" }) {
   );
 }
 
+// Status filters understood by the backend (GET /members and GET /partners).
+// Inactive = Blocked by admin + Expired + Payment pending; they never overlap.
+export const STATUS_FILTERS = [
+  { value: "all", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+  { value: "blocked", label: "Blocked by Admin" },
+  { value: "expired", label: "Expired" },
+  { value: "pending", label: "Payment Pending" },
+  { value: "expiring", label: "Expiring Soon" },
+];
+
 export function MemberStatsCards({ stats }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 sm:gap-3">
+    <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 xl:grid-cols-6">
       <StatCard icon={Users} label="Total Member" value={stats.total} accent="sky" />
       <StatCard icon={UserCheck} label="Active Member" value={stats.active} accent="emerald" />
       <StatCard icon={UserX} label="Inactive Member" value={stats.inactive} accent="slate" />
+      <StatCard icon={UserX} label="Blocked by Admin" value={stats.blocked ?? 0} accent="violet" />
+      <StatCard icon={UserX} label="Expired" value={stats.expired ?? 0} accent="amber" />
+      <StatCard icon={UserX} label="Payment Pending" value={stats.pending ?? 0} accent="sky" />
     </div>
   );
 }
@@ -584,37 +599,58 @@ export function DistrictSelect({ value, onChange, districts, disabled }) {
   );
 }
 
+// Membership validity is calculated by the backend (in IST) and arrives on every
+// member / partner as `record.membership`:
+//   { status: "VALID" | "EXPIRED" | "PENDING", isValid, validFrom, validTo, daysRemaining }
+// The helpers below only read it — nothing here compares dates in the browser.
+
 export function isExpired(record) {
-  if (!record.validityTo) return false;
-  const validityDate = new Date(record.validityTo);
-  if (Number.isNaN(validityDate.getTime())) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  validityDate.setHours(0, 0, 0, 0);
-  return validityDate < today;
+  return record?.membership?.status === "EXPIRED";
+}
+
+// No validity yet: created but the first payment has not been recorded.
+export function isPaymentPending(record) {
+  return record?.membership?.status === "PENDING";
 }
 
 export const EXPIRING_SOON_DAYS = 7;
 
-// Whole days between today and validityTo — negative once expired. Shares
-// the same date-normalization as isExpired so the two never disagree.
+// Whole days left from the backend — negative once expired, null while payment
+// is pending.
 export function daysRemaining(record) {
-  if (!record?.validityTo) return null;
-  const validityDate = new Date(record.validityTo);
-  if (Number.isNaN(validityDate.getTime())) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  validityDate.setHours(0, 0, 0, 0);
-  return Math.round((validityDate - today) / 86400000);
+  return record?.membership?.daysRemaining ?? null;
 }
 
-// Plain-language wording for daysRemaining() so nobody has to do the math
-// themselves: "7 days remaining" / "1 day remaining" / "Expires today" / "Expired".
+// Plain-language wording for daysRemaining(): "7 days remaining" /
+// "1 day remaining" / "Expires today" / "Expired" / "Payment pending".
 export function expiryLabel(days) {
-  if (days === null || days === undefined) return "—";
+  if (days === null || days === undefined) return "Payment pending";
   if (days < 0) return "Expired";
   if (days === 0) return "Expires today";
   return `${days} day${days === 1 ? "" : "s"} remaining`;
+}
+
+// Tooltip for a status badge: says why a record is Inactive (admin's reason,
+// expired plan or unpaid) — all taken from the backend's status and membership.
+export function statusTitle(record) {
+  if (record?.status?.status === "INACTIVE") {
+    const reason = record.status.reason ? `: ${record.status.reason}` : "";
+    const by = record.status.actionBy ? ` (by ${record.status.actionBy})` : "";
+    return `Inactive by admin${reason}${by}`;
+  }
+  if (isExpired(record)) return "Inactive — plan expired. Renew to make it active.";
+  if (isPaymentPending(record)) return "Inactive — payment pending.";
+  return "Active";
+}
+
+// An Active/Inactive switch can only be used when it changes something: a record
+// that is inactive only because its plan expired (or was never paid) becomes
+// active by renewing, not by this switch. Returns the message to show, or null.
+export function statusToggleBlocker(record, name) {
+  if (record?.status?.status === "INACTIVE") return null;
+  if (isExpired(record)) return `${name} is expired — use Renew to make them active.`;
+  if (isPaymentPending(record)) return `${name} has no payment recorded yet — use Renew to make them active.`;
+  return null;
 }
 
 export function isExpiringSoon(record) {
@@ -651,7 +687,6 @@ export const PROFILE_FIELD_KEYS = [
   // City is optional — a blank City never counts toward Profile Incomplete.
   ["companyTelephone", "Company Telephone"],
   ["packetNo", "Packet No."],
-  ["dateOfJoining", "Valid From"],
   ["aadharNo", "Aadhar Card No."],
   ["validityTo", "Validity To"],
 ];
@@ -692,6 +727,19 @@ export function StatusBadge({ active, className = "" }) {
 // A visible on/off switch for the manual Active/Inactive flag — clicking it
 // slides the knob and calls onClick, same as before, just no longer looks
 // like plain colored text.
+// Shown under the Active/Inactive badge when an admin switched the record off.
+export function InactiveReasonNote({ record }) {
+  if (record?.status?.status !== "INACTIVE") return null;
+
+  return (
+    <p className="mt-2 max-w-full rounded-md bg-red-50 px-3 py-2 text-left text-xs text-red-700">
+      <span className="font-semibold">Inactive by admin</span>
+      {record.status.reason ? `: ${record.status.reason}` : ""}
+      {record.status.actionBy ? ` — ${record.status.actionBy}` : ""}
+    </p>
+  );
+}
+
 export function StatusToggle({ active, onClick, title }) {
   return (
     <button

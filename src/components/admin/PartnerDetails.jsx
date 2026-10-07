@@ -9,6 +9,7 @@ import { useLazyCall, useMutate } from "@/services/api/useApiCall";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppLink as Link } from "@/components/common/AppLink";
 import { useGoBack } from "@/hooks/use-go-back";
+import { renewDefaults, ValidFromField } from "./RenewPeriodFields";
 import {
   ArrowLeft,
   CalendarDays,
@@ -41,6 +42,7 @@ import {
   isTodayOrPast,
   parsePartnerSlug,
   StatusBadge,
+  InactiveReasonNote,
 } from "./directory-shared";
 
 import { PartnerPrintableForm } from "./PartnerPrintableForm";
@@ -210,6 +212,7 @@ export function PartnerDetails({ slug }) {
   const [showRenew, setShowRenew] = useState(false);
   const [renewDate, setRenewDate] = useState("");
   const [renewAmount, setRenewAmount] = useState("");
+  const [renewFrom, setRenewFrom] = useState("");
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState("");
 
@@ -390,6 +393,8 @@ export function PartnerDetails({ slug }) {
     setRenewDate(partner.validityTo ? String(partner.validityTo).slice(0, 10) : "");
 
     setRenewAmount("");
+    const defaults = renewDefaults(partner);
+    setRenewFrom(defaults.from);
     setRenewError("");
     setShowRenew(true);
   };
@@ -417,6 +422,10 @@ export function PartnerDetails({ slug }) {
       setRenewError("Validity date must be after today.");
       return;
     }
+    if (!renewFrom) {
+      setRenewError("Choose the Valid From date.");
+      return;
+    }
 
     if (renewAmount !== "" && (!Number.isFinite(Number(renewAmount)) || Number(renewAmount) < 0)) {
       setRenewError("Please enter a valid non-negative amount.");
@@ -429,6 +438,7 @@ export function PartnerDetails({ slug }) {
     try {
       await renewPartner({
         id: partner.id,
+        validityFrom: renewFrom,
         validityTo: renewDate,
         amount: renewAmount === "" ? undefined : Number(renewAmount),
       });
@@ -597,6 +607,7 @@ export function PartnerDetails({ slug }) {
 
                 <div className="mt-4">
                   <StatusBadge active={isEffectivelyActive} />
+                  <InactiveReasonNote record={partner} />
                 </div>
               </div>
 
@@ -643,7 +654,7 @@ export function PartnerDetails({ slug }) {
                   <InfoRow
                     icon={CalendarDays}
                     label="Valid From"
-                    value={formatDate(partner.dateOfJoining)}
+                    value={formatDate(partner.validityFrom)}
                   />
 
                   <InfoRow
@@ -870,6 +881,14 @@ export function PartnerDetails({ slug }) {
                   Current validity: {formatDate(partner.validityTo) || "—"}
                 </p>
               </div>
+
+              {/* Payment date and plan start */}
+              <ValidFromField
+                record={partner}
+                value={renewFrom}
+                onChange={setRenewFrom}
+                disabled={renewing}
+              />
 
               {/* Date */}
               <label className="block">

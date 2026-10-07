@@ -44,7 +44,7 @@ function mapMemberToBearer(member) {
     memberId: member.memberId || "",
     validityFrom: member.validityFrom || "",
     validityTo: member.validityTo || "",
-    active: Boolean(member.isActive && isValidityActive(member.validityTo)),
+    active: Boolean(member.isActive),
     photo: member.photo ? getMediaUrl(member.photo) : null,
   };
 }
@@ -68,7 +68,7 @@ function mapPartnerToBearer(partner) {
     dateOfJoining: formatDate(partner.dateOfJoining),
     validityFrom: formatDate(partner.validityFrom),
     validityTo: formatDate(partner.validityTo),
-    active: Boolean(partner.isActive && isValidityActive(partner.validityTo)),
+    active: Boolean(partner.isActive),
     photo: partner.photo ? getMediaUrl(partner.photo) : null,
   };
 }
@@ -354,15 +354,6 @@ function OfficeBearersList({ bearers }) {
       ))}
     </div>
   );
-}
-
-function isValidityActive(validityTo) {
-  if (!validityTo) return false;
-  const expiry = new Date(validityTo);
-  if (Number.isNaN(expiry.getTime())) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return expiry >= today;
 }
 
 function formatDate(value) {

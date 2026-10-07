@@ -29,6 +29,7 @@ function buildPartnerFormData(partner) {
     state: partner.state,
     district: partner.district,
     city: partner.city,
+    validityFrom: partner.validityFrom,
     validityTo: partner.validityTo,
     amount: partner.amount,
     note: partner.note,
@@ -62,6 +63,32 @@ export const partnersApi = baseApi.injectEndpoints({
         }),
       }),
       transformResponse: toPartnerList,
+      providesTags: ["Partner"],
+    }),
+
+    // Server-side searched, filtered and paginated page of partners — for the
+    // admin lists. (getPartners above returns just the array.)
+    getPartnersPage: builder.query({
+      query: (params = {}) => ({
+        url: "/partners",
+        params: cleanParams({
+          search: params.search?.trim(),
+          status: params.status !== "all" ? params.status : undefined,
+          expiringDays: params.status === "expiring" ? params.expiringDays : undefined,
+          page: params.page,
+          limit: params.limit,
+        }),
+      }),
+      transformResponse: (response, _meta, params = {}) => ({
+        partners: toPartnerList(response),
+        pagination: response?.pagination || {
+          page: params.page || 1,
+          limit: params.limit || 10,
+          total: 0,
+          totalPages: 1,
+        },
+        stats: response?.stats || null,
+      }),
       providesTags: ["Partner"],
     }),
 
@@ -108,16 +135,21 @@ export const partnersApi = baseApi.injectEndpoints({
     }),
 
     togglePartnerStatus: builder.mutation({
-      query: (id) => ({ url: `/partners/${id}/status`, method: "PATCH" }),
+      // body: { isActive, reason } — reason is required when deactivating.
+      query: ({ id, isActive, reason }) => ({
+        url: `/partners/${id}/status`,
+        method: "PATCH",
+        body: { isActive, reason },
+      }),
       transformResponse: unwrapData,
       invalidatesTags: ["Partner"],
     }),
 
     renewPartner: builder.mutation({
-      query: ({ id, validityTo, amount, note }) => ({
+      query: ({ id, validityFrom, validityTo, amount, note }) => ({
         url: `/partners/${id}/renew`,
         method: "PATCH",
-        body: { validityTo, amount, note },
+        body: { validityFrom, validityTo, amount, note },
       }),
       transformResponse: unwrapData,
       invalidatesTags: ["Partner"],
@@ -163,6 +195,7 @@ export const partnersApi = baseApi.injectEndpoints({
 export const {
   useGetPartnersQuery,
   useLazyGetPartnersQuery,
+  useLazyGetPartnersPageQuery,
   useGetPartnerDetailsQuery,
   useLazyGetPartnerDetailsQuery,
   useGetPublicPartnersQuery,

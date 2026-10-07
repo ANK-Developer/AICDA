@@ -29,6 +29,7 @@ function buildMemberFormData(member) {
     state: member.state,
     district: member.district,
     city: member.city,
+    validityFrom: member.validityFrom,
     validityTo: member.validityTo,
     amount: member.amount,
     note: member.note,
@@ -52,6 +53,7 @@ export const membersApi = baseApi.injectEndpoints({
         params: cleanParams({
           search: params.search?.trim(),
           status: params.status !== "all" ? params.status : undefined,
+          expiringDays: params.status === "expiring" ? params.expiringDays : undefined,
           page: params.page,
           limit: params.limit,
         }),
@@ -114,16 +116,21 @@ export const membersApi = baseApi.injectEndpoints({
     }),
 
     toggleMemberStatus: builder.mutation({
-      query: (id) => ({ url: `/members/${id}/status`, method: "PATCH" }),
+      // body: { isActive, reason } — reason is required when deactivating.
+      query: ({ id, isActive, reason }) => ({
+        url: `/members/${id}/status`,
+        method: "PATCH",
+        body: { isActive, reason },
+      }),
       transformResponse: unwrapData,
       invalidatesTags: ["Member"],
     }),
 
     renewMember: builder.mutation({
-      query: ({ id, validityTo, amount, note }) => ({
+      query: ({ id, validityFrom, validityTo, amount, note }) => ({
         url: `/members/${id}/renew`,
         method: "PATCH",
-        body: { validityTo, amount, note },
+        body: { validityFrom, validityTo, amount, note },
       }),
       transformResponse: unwrapData,
       invalidatesTags: ["Member"],

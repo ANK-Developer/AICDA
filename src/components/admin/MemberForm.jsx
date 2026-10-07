@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { toast } from "react-toastify";
+import { todayIST } from "./RenewPeriodFields";
 
 import { getDistrictsForStateName } from "@/lib/india-districts";
 
@@ -59,6 +60,7 @@ function buildInitialForm(member) {
       packetNo: "",
       dateOfJoining: "",
       aadharNo: "",
+      validityFrom: todayIST(),
       validityTo: "",
       amount: "",
       note: "",
@@ -86,6 +88,7 @@ function buildInitialForm(member) {
     packetNo: member.packetNo || "",
     dateOfJoining: member.dateOfJoining ? member.dateOfJoining.slice(0, 10) : "",
     aadharNo: member.aadharNo || "",
+    validityFrom: "",
     validityTo: member.validityTo ? member.validityTo.slice(0, 10) : "",
     amount: "",
     note: "",
@@ -618,18 +621,21 @@ export function MemberForm({ member, onCancel, onSaved }) {
         description="Membership dates and payment information"
       >
         <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 lg:grid-cols-3">
-          <FormInput label="Valid From">
-            <div className="relative">
-              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          {!isEdit && (
+            <FormInput label="Valid From">
+              <div className="relative">
+                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
-              <input
-                type="date"
-                value={form.dateOfJoining}
-                onChange={(e) => updateField("dateOfJoining", e.target.value)}
-                className={`pl-9 ${inputClass}`}
-              />
-            </div>
-          </FormInput>
+                <input
+                  type="date"
+                  value={form.validityFrom}
+                  max={todayIST()}
+                  onChange={(e) => updateField("validityFrom", e.target.value)}
+                  className={`pl-9 ${inputClass}`}
+                />
+              </div>
+            </FormInput>
+          )}
 
           <FormInput label="Validity To">
             <div className="relative">
